@@ -1,1 +1,1 @@
-# Dusk ZKP debugger
+# Dusk PLONK debugger
