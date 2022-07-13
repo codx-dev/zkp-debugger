@@ -1,0 +1,11 @@
+[package]
+name = "dusk-plonk-debugger"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bat = "0.21"
+
+[dev-dependencies]
+rand = "0.8"
+sha256 = "1.0"
