@@ -1,0 +1,44 @@
+; circuit description format specification
+;
+; format in accordance to rfc-5234 (augmented bnf for syntax specifications)
+; https://datatracker.ietf.org/doc/html/rfc5234
+;
+; author: victor lopez <victor@codx.io>
+; date: 2022-07-15
+
+bool            = OCTET                         ; evaluates to `false` if, and
+                                                ; only if, the octet equals 0
+word            = <8>OCTET                      ; unsigned word
+scalar          = <32>OCTET                     ; 256-bit scalar, curve agnostic
+
+line            = <8>OCTET                      ; unsigned word, line no in a
+                                                ; file
+col             = <8>OCTET                      ; unsigned word, col no in a
+                                                ; line
+path            = <1024>CHAR                    ; platform agnostic canonical
+                                                ; path description
+source          = line col path                 ; fully map to a file location
+
+preamble        = <2>word                       ; witness count and constraints
+                                                ; count
+
+witness         = word scalar source            ; witness index equals word id
+
+optional-word   = bool word                     ; bool is `true` if, and only
+                                                ; if, word is present
+indexed-witness = word optional-word scalar     ; witness index equals word id
+
+selectors       = <7>scalar                     ; qm, ql, qr, qd, qc, qo, and
+                                                ; public input
+
+poly-witnesses  = <4>indexed-witness            ; a, b, d, o
+
+polynomial      = selectors poly-witnesses bool ; bool is `true` if, and only
+                                                ; if, the polynomial is
+                                                ; evaluated correctly in the
+                                                ; curve of choice
+
+constraint      = word polynomial source        ; gate equals the word id
+
+cdf             = preamble *witness *constraint ; preamble defines witnesses
+                                                ; and constraints count
