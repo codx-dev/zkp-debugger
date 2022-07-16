@@ -1,10 +1,7 @@
-mod generator;
-
 use std::{fmt, iter};
 
-use dusk_plonk_debugger::cdf::*;
-
-pub use generator::CDFGenerator;
+use dusk_plonk_debugger_utils::*;
+use dusk_plonk_cdf::*;
 
 pub fn encode_decode_element<E, I>(elements: I)
 where

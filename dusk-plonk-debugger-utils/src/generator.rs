@@ -1,4 +1,6 @@
-use dusk_plonk_debugger::cdf::*;
+use std::io;
+
+use dusk_plonk_cdf::*;
 
 use rand::distributions::Alphanumeric;
 use rand::rngs::StdRng;
@@ -11,6 +13,39 @@ pub struct CDFGenerator {
 impl CDFGenerator {
     pub fn new(seed: u64) -> Self {
         Self::seed_from_u64(seed)
+    }
+
+    pub fn gen_cursor(&mut self, preamble: &Preamble) -> io::Cursor<Vec<u8>> {
+        self.gen_cursor_with_callback(preamble, |w| w, |c| c)
+    }
+
+    pub fn gen_cursor_with_callback<W, C>(
+        &mut self,
+        preamble: &Preamble,
+        w: W,
+        c: C,
+    ) -> io::Cursor<Vec<u8>>
+    where
+        W: FnMut(Witness) -> Witness,
+        C: FnMut(Constraint) -> Constraint,
+    {
+        let mut cursor = io::Cursor::new(Vec::new());
+
+        let (witnesses, constraints) = self.gen_structurally_sound_circuit(&preamble);
+
+        let witnesses: Vec<Witness> = witnesses.into_iter().map(w).collect();
+        let constraints: Vec<Constraint> = constraints.into_iter().map(c).collect();
+
+        CircuitDescriptionUnit::write_all(
+            &mut cursor,
+            witnesses.into_iter(),
+            constraints.into_iter(),
+        )
+        .expect("failed to serialize circuit");
+
+        cursor.set_position(0);
+
+        cursor
     }
 
     pub fn gen_scalar(&mut self) -> Scalar {
@@ -179,5 +214,43 @@ impl RngCore for CDFGenerator {
 
     fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
         self.rng.try_fill_bytes(dest)
+    }
+}
+
+#[test]
+fn generate_circuit_is_valid_cdf() {
+    let cases = vec![
+        Preamble::new(1, 0),
+        Preamble::new(1, 1),
+        Preamble::new(1, 10),
+        Preamble::new(10, 0),
+        Preamble::new(10, 10),
+        Preamble::new(10, 100),
+        Preamble::new(100, 10),
+    ];
+
+    for preamble in cases {
+        let w_len = preamble.witnesses() as usize;
+        let c_len = preamble.constraints() as usize;
+
+        let (witnesses, constraints) =
+            CDFGenerator::new(0x348).gen_structurally_sound_circuit(&preamble);
+
+        assert_eq!(w_len, witnesses.len());
+        assert_eq!(c_len, constraints.len());
+
+        let mut cursor = io::Cursor::new(Vec::new());
+
+        let n = CircuitDescriptionUnit::write_all(
+            &mut cursor,
+            witnesses.clone().into_iter(),
+            constraints.clone().into_iter(),
+        )
+        .expect("failed to generate valid CDF");
+
+        assert_eq!(
+            n,
+            Preamble::LEN + w_len * Witness::LEN + c_len * Constraint::LEN
+        );
     }
 }

@@ -1,5 +1,5 @@
-use std::io;
 use std::ops::Deref;
+use std::{fmt, io};
 
 use super::{Element, Preamble};
 
@@ -7,8 +7,14 @@ use super::{Element, Preamble};
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FixedText<const N: u16>(String);
 
+impl<const N: u16> fmt::Display for FixedText<N> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
 impl<const N: u16> Deref for FixedText<N> {
-    type Target = String;
+    type Target = str;
 
     fn deref(&self) -> &Self::Target {
         &self.0

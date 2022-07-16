@@ -2,9 +2,6 @@ use std::fs::{File, OpenOptions};
 use std::io;
 use std::path::{Path, PathBuf};
 
-use bat::line_range::LineRanges;
-use bat::PrettyPrinter;
-
 use super::{Element, FixedText, Preamble};
 
 /// Source file representation for debug mapping, including line and column of a file
@@ -24,39 +21,25 @@ impl Source {
         Self { line, col, path }
     }
 
+    /// Source path
+    pub const fn path(&self) -> &FixedText<{ Self::PATH_LEN }> {
+        &self.path
+    }
+
+    /// Source line
+    pub const fn line(&self) -> u64 {
+        self.line
+    }
+
     /// Return the canonical path represented in the source file. Read more: [`Path::canonicalize`]
     pub fn canonical_path(&self) -> io::Result<PathBuf> {
-        Path::new(self.path.as_str()).canonicalize()
+        Path::new(&*self.path).canonicalize()
     }
 
     /// Open the source file as read-only
     pub fn open(&self) -> io::Result<File> {
         self.canonical_path()
             .and_then(|path| OpenOptions::new().read(true).open(path))
-    }
-
-    /// Render the file into the terminal
-    pub fn render(&self, margin: usize) -> io::Result<()> {
-        let path = self.canonical_path()?;
-
-        let line = self.line as usize;
-        let range = LineRanges::from(vec![bat::line_range::LineRange::new(
-            line.saturating_sub(margin),
-            line.saturating_add(margin),
-        )]);
-
-        PrettyPrinter::new()
-            .input_file(path)
-            .language("rust")
-            .header(true)
-            .grid(true)
-            .line_numbers(true)
-            .line_ranges(range)
-            .highlight(line)
-            .print()
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-
-        Ok(())
     }
 }
 

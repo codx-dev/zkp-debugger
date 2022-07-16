@@ -1,11 +1,8 @@
 use std::{io, iter};
 
-mod generator;
-
-use dusk_plonk_debugger::cdf::*;
+use dusk_plonk_cdf::*;
+use dusk_plonk_debugger_utils::*;
 use rand::prelude::*;
-
-pub use generator::CDFGenerator;
 
 #[test]
 fn shuffled_circuit_is_sound_after_validation() {

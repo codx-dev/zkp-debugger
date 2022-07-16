@@ -25,6 +25,21 @@ impl IndexedWitness {
             value,
         }
     }
+
+    /// Witness index
+    pub const fn index(&self) -> u64 {
+        self.index
+    }
+
+    /// Witness constraint originator
+    pub const fn origin(&self) -> &Option<u64> {
+        &self.origin
+    }
+
+    /// Witness value
+    pub const fn value(&self) -> &Scalar {
+        &self.value
+    }
 }
 
 impl Element for IndexedWitness {

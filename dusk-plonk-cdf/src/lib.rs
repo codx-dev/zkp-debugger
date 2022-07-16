@@ -1,3 +1,6 @@
+#![warn(missing_docs)]
+#![doc = include_str!("../README.md")]
+
 //! The binary format for CDF is a dense linear encoding.
 //!
 //! A circuit is a compositions of items that are either [`crate::cdf::Witness`] or [`crate::cdf::Constraint`].
@@ -39,6 +42,9 @@ pub use witness::Witness;
 
 /// A circuit description with a unit backend
 pub type CircuitDescriptionUnit = CircuitDescription<()>;
+
+/// A circuit description with a file backend
+pub type CircuitDescriptionFile = CircuitDescription<File>;
 
 /// A circuit description file
 ///

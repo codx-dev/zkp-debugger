@@ -1,0 +1,22 @@
+[package]
+name = "dusk-plonk-pdb"
+version = "0.1.0"
+authors = ["Victor Lopez <victor@codx.io>"]
+edition = "2021"
+readme = "README.md"
+description = "PLONK debugger CDF implementation"
+
+[dependencies]
+bat = "0.21"
+clap = { version = "3.2", features = ["derive"] }
+crossterm = "0.24"
+dusk-plonk-cdf = { path = "../dusk-plonk-cdf" }
+dirs = "4.0"
+hex = "0.4"
+prettytable-rs = "0.8"
+rustyline = "9.1"
+rustyline-derive = "0.6"
+shellwords = "1.1"
+
+[dev-dependencies]
+dusk-plonk-debugger-utils = { path = "../dusk-plonk-debugger-utils" }

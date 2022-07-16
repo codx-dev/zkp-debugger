@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use std::{io, mem};
 
-use crate::cdf::Preamble;
+use crate::Preamble;
 
 use super::Element;
 

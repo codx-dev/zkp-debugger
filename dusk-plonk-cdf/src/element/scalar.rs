@@ -17,6 +17,12 @@ impl From<[u8; Scalar::LEN]> for Scalar {
     }
 }
 
+impl AsRef<[u8]> for Scalar {
+    fn as_ref(&self) -> &[u8] {
+        &self.scalar
+    }
+}
+
 impl Deref for Scalar {
     type Target = [u8; Self::LEN];
 

@@ -25,6 +25,11 @@ impl Witness {
     pub const fn value(&self) -> &Scalar {
         &self.value
     }
+
+    /// Source reference of the witness
+    pub const fn source(&self) -> &Source {
+        &self.source
+    }
 }
 
 impl Element for Witness {

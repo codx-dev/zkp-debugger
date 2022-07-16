@@ -1,0 +1,11 @@
+[package]
+name = "dusk-plonk-cdf"
+version = "0.1.0"
+authors = ["Victor Lopez <victor@codx.io>"]
+edition = "2021"
+readme = "README.md"
+description = "PLONK debugger CDF implementation"
+
+[dev-dependencies]
+dusk-plonk-debugger-utils = { path = "../dusk-plonk-debugger-utils" }
+rand = "0.8"

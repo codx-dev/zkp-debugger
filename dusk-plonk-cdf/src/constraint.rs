@@ -29,6 +29,16 @@ impl Constraint {
     pub const fn polynomial(&self) -> &Polynomial {
         &self.polynomial
     }
+
+    /// Source file that originated the constraint
+    pub const fn source(&self) -> &Source {
+        &self.source
+    }
+
+    /// Check if the polynomial evaluation is ok
+    pub const fn is_ok(&self) -> bool {
+        self.polynomial.is_ok()
+    }
 }
 
 impl Element for Constraint {

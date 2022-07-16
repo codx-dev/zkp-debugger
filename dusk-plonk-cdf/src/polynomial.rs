@@ -53,6 +53,34 @@ impl Polynomial {
             re,
         }
     }
+
+    /// Check if the polynomial evaluation is ok
+    pub const fn is_ok(&self) -> bool {
+        self.re
+    }
+
+    /// Fetch the constraint internals
+    pub const fn internals(
+        &self,
+    ) -> (
+        &Scalar,
+        &Scalar,
+        &Scalar,
+        &Scalar,
+        &Scalar,
+        &Scalar,
+        &Scalar,
+        &IndexedWitness,
+        &IndexedWitness,
+        &IndexedWitness,
+        &IndexedWitness,
+        bool,
+    ) {
+        (
+            &self.qm, &self.ql, &self.qr, &self.qd, &self.qc, &self.qo, &self.pi, &self.a, &self.b,
+            &self.d, &self.o, self.re,
+        )
+    }
 }
 
 impl Element for Polynomial {
