@@ -42,22 +42,27 @@ impl Constraint {
 }
 
 impl Element for Constraint {
-    const LEN: usize = u64::LEN + Scalar::LEN + Polynomial::LEN + Source::LEN;
-
     fn zeroed() -> Self {
         Self::default()
     }
 
-    fn to_buffer(&self, buf: &mut [u8]) {
-        let buf = self.id.encode(buf);
-        let buf = self.polynomial.encode(buf);
-        let _ = self.source.encode(buf);
+    fn len(preamble: &Preamble) -> usize {
+        u64::len(preamble)
+            + Scalar::len(preamble)
+            + Polynomial::len(preamble)
+            + Source::len(preamble)
     }
 
-    fn try_from_buffer_in_place(&mut self, buf: &[u8]) -> io::Result<()> {
-        let buf = self.id.try_decode_in_place(buf)?;
-        let buf = self.polynomial.try_decode_in_place(buf)?;
-        let _ = self.source.try_decode_in_place(buf)?;
+    fn to_buffer(&self, preamble: &Preamble, buf: &mut [u8]) {
+        let buf = self.id.encode(preamble, buf);
+        let buf = self.polynomial.encode(preamble, buf);
+        let _ = self.source.encode(preamble, buf);
+    }
+
+    fn try_from_buffer_in_place(&mut self, preamble: &Preamble, buf: &[u8]) -> io::Result<()> {
+        let buf = self.id.try_decode_in_place(preamble, buf)?;
+        let buf = self.polynomial.try_decode_in_place(preamble, buf)?;
+        let _ = self.source.try_decode_in_place(preamble, buf)?;
 
         Ok(())
     }
@@ -68,24 +73,5 @@ impl Element for Constraint {
         self.source.validate(preamble)?;
 
         Ok(())
-    }
-}
-
-impl io::Write for Constraint {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.try_write(buf)
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        self.polynomial.flush()?;
-        self.source.flush()?;
-
-        Ok(())
-    }
-}
-
-impl io::Read for Constraint {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.try_read(buf)
     }
 }

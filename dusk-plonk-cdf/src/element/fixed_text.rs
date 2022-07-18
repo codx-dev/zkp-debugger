@@ -1,7 +1,8 @@
 use std::ops::Deref;
-use std::{fmt, io};
+use std::{fmt, io, mem};
 
 use super::{Element, Preamble};
+use crate::bytes;
 
 /// Text representation with fixed `N` bytes.
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -26,9 +27,9 @@ impl<const N: u16> Deref for FixedText<N> {
 
 impl<const N: u16> From<String> for FixedText<N> {
     fn from(mut s: String) -> Self {
-        assert!(u16::LEN <= N as usize);
+        assert!(mem::size_of::<u16>() <= N as usize);
 
-        s.truncate(N as usize - u16::LEN);
+        s.truncate(N as usize - mem::size_of::<u16>());
 
         Self(s)
     }
@@ -41,22 +42,24 @@ impl<const N: u16> From<FixedText<N>> for String {
 }
 
 impl<const N: u16> Element for FixedText<N> {
-    const LEN: usize = N as usize;
-
     fn zeroed() -> Self {
         Self::default()
     }
 
-    fn to_buffer(&self, buf: &mut [u8]) {
-        let bytes = self.0.as_bytes();
-
-        let buf = (bytes.len() as u16).encode(buf);
-
-        let _ = Self::encode_bytes(bytes, buf);
+    fn len(_preamble: &Preamble) -> usize {
+        N as usize
     }
 
-    fn try_from_buffer_in_place(&mut self, buf: &[u8]) -> io::Result<()> {
-        let (len, buf) = u16::try_decode(buf)?;
+    fn to_buffer(&self, preamble: &Preamble, buf: &mut [u8]) {
+        let bytes = self.0.as_bytes();
+
+        let buf = (bytes.len() as u16).encode(preamble, buf);
+
+        let _ = bytes::encode_bytes(bytes, buf);
+    }
+
+    fn try_from_buffer_in_place(&mut self, preamble: &Preamble, buf: &[u8]) -> io::Result<()> {
+        let (len, buf) = u16::try_decode(preamble, buf)?;
 
         self.0 = String::from_utf8(buf[..len as usize].to_vec())
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
@@ -66,21 +69,5 @@ impl<const N: u16> Element for FixedText<N> {
 
     fn validate(&self, _preamble: &Preamble) -> io::Result<()> {
         Ok(())
-    }
-}
-
-impl<const N: u16> io::Write for FixedText<N> {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.try_write(buf)
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
-    }
-}
-
-impl<const N: u16> io::Read for FixedText<N> {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.try_read(buf)
     }
 }

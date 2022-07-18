@@ -1,3 +1,4 @@
+use core::mem;
 use std::io;
 
 use super::Element;
@@ -10,6 +11,12 @@ pub struct Preamble {
 }
 
 impl Preamble {
+    /// Serialized lenght
+    pub const LEN: usize = 2 * mem::size_of::<u64>();
+
+    /// Zeroed preamble
+    pub const ZEROED: Self = Self::new(1, 0);
+
     /// Create a new preamble instance.
     pub const fn new(witnesses: u64, constraints: u64) -> Self {
         // Empty witness set can't produce a valid PLONK circuit since the first witness is
@@ -31,44 +38,51 @@ impl Preamble {
     pub const fn constraints(&self) -> u64 {
         self.constraints
     }
-}
 
-impl Element for Preamble {
-    const LEN: usize = 16;
-
-    fn zeroed() -> Self {
-        Self::default()
+    /// Serialize the preamble into a buffer
+    pub fn to_buffer(&self, buf: &mut [u8]) {
+        let buf = self.witnesses.encode(self, buf);
+        let _ = self.constraints.encode(self, buf);
     }
 
-    fn to_buffer(&self, buf: &mut [u8]) {
-        let buf = self.witnesses.encode(buf);
-        let _ = self.constraints.encode(buf);
-    }
+    /// Attempt to decode the preamble from a buffer
+    pub fn try_from_buffer_in_place(&mut self, buf: &[u8]) -> io::Result<()> {
+        let mut witnesses = 0;
+        let mut constraints = 0;
 
-    fn try_from_buffer_in_place(&mut self, buf: &[u8]) -> io::Result<()> {
-        let buf = self.witnesses.try_decode_in_place(buf)?;
-        let _ = self.constraints.try_decode_in_place(buf)?;
+        let buf = witnesses.try_decode_in_place(self, buf)?;
+        let _ = constraints.try_decode_in_place(self, buf)?;
+
+        self.witnesses = witnesses;
+        self.constraints = constraints;
 
         Ok(())
     }
 
-    fn validate(&self, _preamble: &Preamble) -> io::Result<()> {
-        Ok(())
-    }
-}
+    /// Send the bytes representation of an element to a writer
+    pub fn try_to_writer<W>(&self, mut writer: W) -> io::Result<usize>
+    where
+        W: io::Write,
+    {
+        let mut bytes = vec![0u8; Self::LEN];
 
-impl io::Write for Preamble {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.try_write(buf)
+        self.to_buffer(&mut bytes);
+
+        writer.write(&bytes)
     }
 
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
-    }
-}
+    /// Attempt to create a preamble from a reader
+    pub fn try_from_reader<R>(mut reader: R) -> io::Result<Self>
+    where
+        R: io::Read,
+    {
+        let mut bytes = vec![0u8; Self::LEN];
+        let _ = reader.read(&mut bytes)?;
 
-impl io::Read for Preamble {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.try_read(buf)
+        let mut preamble = Self::ZEROED;
+
+        preamble.try_from_buffer_in_place(&bytes)?;
+
+        Ok(preamble)
     }
 }

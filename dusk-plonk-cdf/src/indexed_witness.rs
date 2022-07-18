@@ -43,22 +43,24 @@ impl IndexedWitness {
 }
 
 impl Element for IndexedWitness {
-    const LEN: usize = u64::LEN + <Option<u64>>::LEN + Scalar::LEN;
-
     fn zeroed() -> Self {
         Self::default()
     }
 
-    fn to_buffer(&self, buf: &mut [u8]) {
-        let buf = self.index.encode(buf);
-        let buf = self.origin.encode(buf);
-        let _ = self.value.encode(buf);
+    fn len(preamble: &Preamble) -> usize {
+        u64::len(preamble) + <Option<u64>>::len(preamble) + Scalar::len(preamble)
     }
 
-    fn try_from_buffer_in_place(&mut self, buf: &[u8]) -> io::Result<()> {
-        let buf = self.index.try_decode_in_place(buf)?;
-        let buf = self.origin.try_decode_in_place(buf)?;
-        let _ = self.value.try_decode_in_place(buf)?;
+    fn to_buffer(&self, preamble: &Preamble, buf: &mut [u8]) {
+        let buf = self.index.encode(preamble, buf);
+        let buf = self.origin.encode(preamble, buf);
+        let _ = self.value.encode(preamble, buf);
+    }
+
+    fn try_from_buffer_in_place(&mut self, preamble: &Preamble, buf: &[u8]) -> io::Result<()> {
+        let buf = self.index.try_decode_in_place(preamble, buf)?;
+        let buf = self.origin.try_decode_in_place(preamble, buf)?;
+        let _ = self.value.try_decode_in_place(preamble, buf)?;
 
         Ok(())
     }
@@ -85,23 +87,5 @@ impl Element for IndexedWitness {
         }
 
         Ok(())
-    }
-}
-
-impl io::Write for IndexedWitness {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.try_write(buf)
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        self.value.flush()?;
-
-        Ok(())
-    }
-}
-
-impl io::Read for IndexedWitness {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.try_read(buf)
     }
 }

@@ -1,34 +1,46 @@
 use std::{fmt, iter};
 
-use dusk_plonk_debugger_utils::*;
 use dusk_plonk_cdf::*;
+use dusk_plonk_debugger_utils::*;
 
-pub fn encode_decode_element<E, I>(elements: I)
+pub fn encode_decode_element<E, I>(mut elements: I)
 where
     E: Element + fmt::Debug + PartialEq,
     I: Iterator<Item = E>,
 {
-    elements.for_each(|el| {
-        let bytes = el.to_vec();
-        let el_p = E::try_from_buffer(&bytes).expect("failed to decode");
+    let preambles = vec![
+        Preamble::new(1, 0),
+        Preamble::new(1, 1),
+        Preamble::new(1, 10),
+        Preamble::new(10, 0),
+        Preamble::new(10, 1),
+        Preamble::new(10, 10),
+        Preamble::new(10, 100),
+    ];
 
-        assert_eq!(el_p, el);
+    for preamble in preambles {
+        elements.by_ref().for_each(move |el| {
+            let bytes = el.to_vec(&preamble);
+            let el_p = E::try_from_buffer(&preamble, &bytes).expect("failed to decode");
 
-        let mut op = Some(el);
-        let bytes = op.to_vec();
-        let op_p = <Option<E>>::try_from_buffer(&bytes).expect("failed to decode");
+            assert_eq!(el_p, el);
 
-        assert_eq!(op_p, op);
-        assert_ne!(op_p, None);
+            let mut op = Some(el);
+            let bytes = op.to_vec(&preamble);
+            let op_p = <Option<E>>::try_from_buffer(&preamble, &bytes).expect("failed to decode");
 
-        let el = op.take();
+            assert_eq!(op_p, op);
+            assert_ne!(op_p, None);
 
-        let bytes = op.to_vec();
-        let op_p = <Option<E>>::try_from_buffer(&bytes).expect("failed to decode");
+            let el = op.take();
 
-        assert_eq!(op_p, None);
-        assert_ne!(op_p, el);
-    })
+            let bytes = op.to_vec(&preamble);
+            let op_p = <Option<E>>::try_from_buffer(&preamble, &bytes).expect("failed to decode");
+
+            assert_eq!(op_p, None);
+            assert_ne!(op_p, el);
+        });
+    }
 }
 
 #[test]
@@ -85,10 +97,42 @@ fn encode_fixed_text_primitive_and_source() {
 
 #[test]
 fn encode_preamble() {
-    encode_decode_element(iter::once(Preamble::new(1, 0)));
-    encode_decode_element(iter::once(Preamble::new(u64::MAX, 0)));
-    encode_decode_element(iter::once(Preamble::new(1, u64::MAX)));
-    encode_decode_element(iter::once(Preamble::new(u64::MAX, u64::MAX)));
+    #[derive(Debug, PartialEq, Eq)]
+    struct PreambleElement(Preamble);
+
+    impl Element for PreambleElement {
+        fn zeroed() -> Self {
+            Self(Preamble::ZEROED)
+        }
+
+        fn len(_preamble: &Preamble) -> usize {
+            Preamble::LEN
+        }
+
+        fn to_buffer(&self, _preamble: &Preamble, buf: &mut [u8]) {
+            self.0.to_buffer(buf)
+        }
+
+        fn try_from_buffer_in_place(
+            &mut self,
+            _preamble: &Preamble,
+            buf: &[u8],
+        ) -> std::io::Result<()> {
+            self.0.try_from_buffer_in_place(buf)
+        }
+
+        fn validate(&self, _preamble: &Preamble) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    encode_decode_element(iter::once(PreambleElement(Preamble::new(1, 0))));
+    encode_decode_element(iter::once(PreambleElement(Preamble::new(u64::MAX, 0))));
+    encode_decode_element(iter::once(PreambleElement(Preamble::new(1, u64::MAX))));
+    encode_decode_element(iter::once(PreambleElement(Preamble::new(
+        u64::MAX,
+        u64::MAX,
+    ))));
 }
 
 #[test]
@@ -127,14 +171,16 @@ fn encode_indexed_witness() {
 
 #[test]
 fn encode_generated_witnesses() {
-    let mut generator = CDFGenerator::new(0x8437);
+    let preamble = Preamble::new(100, 10);
+    let mut generator = CDFGenerator::new(0x8437, preamble);
 
     encode_decode_element((0..100).map(|_| generator.gen_witness()));
 }
 
 #[test]
 fn encode_generated_constraints() {
-    let mut generator = CDFGenerator::new(0x8437);
+    let preamble = Preamble::new(100, 10);
+    let mut generator = CDFGenerator::new(0x8437, preamble);
 
     encode_decode_element((0..100).map(|_| generator.gen_constraint()));
 }

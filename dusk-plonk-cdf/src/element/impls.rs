@@ -1,22 +1,24 @@
 use std::marker::PhantomData;
 use std::{io, mem};
 
-use crate::Preamble;
+use crate::{bytes, Preamble};
 
 use super::Element;
 
 impl Element for bool {
-    const LEN: usize = 1;
-
     fn zeroed() -> Self {
         false
     }
 
-    fn to_buffer(&self, buf: &mut [u8]) {
+    fn len(_preamble: &Preamble) -> usize {
+        1
+    }
+
+    fn to_buffer(&self, _preamble: &Preamble, buf: &mut [u8]) {
         buf[0] = *self as u8;
     }
 
-    fn try_from_buffer_in_place(&mut self, buf: &[u8]) -> io::Result<()> {
+    fn try_from_buffer_in_place(&mut self, _preamble: &Preamble, buf: &[u8]) -> io::Result<()> {
         *self = buf[0] != 0;
 
         Ok(())
@@ -30,20 +32,28 @@ impl Element for bool {
 macro_rules! impl_num {
     ($t:ty) => {
         impl Element for $t {
-            const LEN: usize = mem::size_of::<$t>();
-
             fn zeroed() -> Self {
                 0
             }
 
-            fn to_buffer(&self, buf: &mut [u8]) {
-                Self::encode_bytes(&self.to_le_bytes(), buf);
+            fn len(_preamble: &Preamble) -> usize {
+                mem::size_of::<$t>()
             }
 
-            fn try_from_buffer_in_place(&mut self, buf: &[u8]) -> io::Result<()> {
-                let mut slf = [0u8; Self::LEN];
+            fn to_buffer(&self, _preamble: &Preamble, buf: &mut [u8]) {
+                bytes::encode_bytes(&self.to_le_bytes(), buf);
+            }
 
-                slf.copy_from_slice(&buf[..Self::LEN]);
+            fn try_from_buffer_in_place(
+                &mut self,
+                _preamble: &Preamble,
+                buf: &[u8],
+            ) -> io::Result<()> {
+                const LEN: usize = mem::size_of::<$t>();
+
+                let mut slf = [0u8; LEN];
+
+                slf.copy_from_slice(&buf[..LEN]);
 
                 *self = <$t>::from_le_bytes(slf);
 
@@ -65,33 +75,35 @@ impl<T> Element for Option<T>
 where
     T: Element,
 {
-    const LEN: usize = T::LEN + 1;
-
     fn zeroed() -> Self {
         None
     }
 
-    fn to_buffer(&self, buf: &mut [u8]) {
-        let buf = self.is_some().encode(buf);
+    fn len(preamble: &Preamble) -> usize {
+        T::len(preamble) + 1
+    }
+
+    fn to_buffer(&self, preamble: &Preamble, buf: &mut [u8]) {
+        let buf = self.is_some().encode(preamble, buf);
 
         // Will fill the space with zeroes, if `None`. This will guarantee deterministic
         // serialization, which will be desirable for checksum routines.
         match self {
-            Some(t) => t.to_buffer(buf),
+            Some(t) => t.to_buffer(preamble, buf),
             None => buf.fill(0),
         }
     }
 
-    fn try_from_buffer_in_place(&mut self, buf: &[u8]) -> io::Result<()> {
-        let (is_some, buf) = bool::try_decode(buf)?;
+    fn try_from_buffer_in_place(&mut self, preamble: &Preamble, buf: &[u8]) -> io::Result<()> {
+        let (is_some, buf) = bool::try_decode(preamble, buf)?;
 
         match self {
             Some(t) if is_some => {
-                t.try_from_buffer_in_place(buf)?;
+                t.try_from_buffer_in_place(preamble, buf)?;
             }
 
             None if is_some => {
-                let t = T::try_from_buffer(buf)?;
+                let t = T::try_from_buffer(preamble, buf)?;
 
                 self.replace(t);
             }
@@ -113,15 +125,17 @@ where
 }
 
 impl Element for () {
-    const LEN: usize = 0;
-
     fn zeroed() -> Self {
         ()
     }
 
-    fn to_buffer(&self, _buf: &mut [u8]) {}
+    fn len(_preamble: &Preamble) -> usize {
+        0
+    }
 
-    fn try_from_buffer_in_place(&mut self, _buf: &[u8]) -> io::Result<()> {
+    fn to_buffer(&self, _preamble: &Preamble, _buf: &mut [u8]) {}
+
+    fn try_from_buffer_in_place(&mut self, _preamble: &Preamble, _buf: &[u8]) -> io::Result<()> {
         Ok(())
     }
 
@@ -131,15 +145,17 @@ impl Element for () {
 }
 
 impl<T> Element for PhantomData<T> {
-    const LEN: usize = 0;
-
     fn zeroed() -> Self {
         PhantomData
     }
 
-    fn to_buffer(&self, _buf: &mut [u8]) {}
+    fn len(_preamble: &Preamble) -> usize {
+        0
+    }
 
-    fn try_from_buffer_in_place(&mut self, _buf: &[u8]) -> io::Result<()> {
+    fn to_buffer(&self, _preamble: &Preamble, _buf: &mut [u8]) {}
+
+    fn try_from_buffer_in_place(&mut self, _preamble: &Preamble, _buf: &[u8]) -> io::Result<()> {
         Ok(())
     }
 

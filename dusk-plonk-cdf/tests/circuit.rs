@@ -6,8 +6,6 @@ use rand::prelude::*;
 
 #[test]
 fn shuffled_circuit_is_sound_after_validation() {
-    let mut generator = CDFGenerator::new(0x384);
-
     let preambles = vec![
         Preamble::new(1, 0),
         Preamble::new(1, 1),
@@ -16,7 +14,8 @@ fn shuffled_circuit_is_sound_after_validation() {
     ];
 
     for preamble in preambles {
-        let (witnesses, constraints) = generator.gen_structurally_sound_circuit(&preamble);
+        let mut generator = CDFGenerator::new(0x384, preamble);
+        let (witnesses, constraints) = generator.gen_structurally_sound_circuit();
 
         let mut shuffled_w = witnesses.clone();
         let mut shuffled_c = constraints.clone();
@@ -61,7 +60,8 @@ fn witness_count_cant_be_zero() {
 
 #[test]
 fn single_witness_circuit_is_valid() {
-    let mut generator = CDFGenerator::new(0x384);
+    let preamble = Preamble::new(1, 0);
+    let mut generator = CDFGenerator::new(0x384, preamble);
 
     let id = 0;
     let value = generator.gen_scalar();
@@ -78,7 +78,8 @@ fn single_witness_circuit_is_valid() {
 
 #[test]
 fn witness_must_start_at_zero() {
-    let mut generator = CDFGenerator::new(0x384);
+    let preamble = Preamble::new(1, 0);
+    let mut generator = CDFGenerator::new(0x384, preamble);
 
     let id = 1;
     let value = generator.gen_scalar();
@@ -93,10 +94,10 @@ fn witness_must_start_at_zero() {
 
 #[test]
 fn constraint_must_start_at_zero() {
-    let mut generator = CDFGenerator::new(0x384);
-
     let preamble = Preamble::new(1, 1);
-    let (witnesses, constraints) = generator.gen_structurally_sound_circuit(&preamble);
+    let mut generator = CDFGenerator::new(0x384, preamble);
+
+    let (witnesses, constraints) = generator.gen_structurally_sound_circuit();
 
     let witness = witnesses[0].clone();
     let polynomial = constraints[0].polynomial().clone();
@@ -128,8 +129,6 @@ fn constraint_must_start_at_zero() {
 
 #[test]
 fn circuit_data_seek_works_for_witness_and_constraints() {
-    let mut generator = CDFGenerator::new(0x384);
-
     let preambles = vec![
         Preamble::new(1, 0),
         Preamble::new(1, 10),
@@ -138,7 +137,8 @@ fn circuit_data_seek_works_for_witness_and_constraints() {
     ];
 
     for preamble in preambles {
-        let (witnesses, constraints) = generator.gen_structurally_sound_circuit(&preamble);
+        let mut generator = CDFGenerator::new(0x384, preamble);
+        let (witnesses, constraints) = generator.gen_structurally_sound_circuit();
 
         let mut cursor = io::Cursor::new(Vec::new());
 

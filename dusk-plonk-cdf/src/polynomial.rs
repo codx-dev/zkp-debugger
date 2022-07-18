@@ -84,40 +84,42 @@ impl Polynomial {
 }
 
 impl Element for Polynomial {
-    const LEN: usize = 7 * Scalar::LEN + 4 * IndexedWitness::LEN + bool::LEN;
-
     fn zeroed() -> Self {
         Self::default()
     }
 
-    fn to_buffer(&self, buf: &mut [u8]) {
-        let buf = self.qm.encode(buf);
-        let buf = self.ql.encode(buf);
-        let buf = self.qr.encode(buf);
-        let buf = self.qd.encode(buf);
-        let buf = self.qc.encode(buf);
-        let buf = self.qo.encode(buf);
-        let buf = self.pi.encode(buf);
-        let buf = self.a.encode(buf);
-        let buf = self.b.encode(buf);
-        let buf = self.d.encode(buf);
-        let buf = self.o.encode(buf);
-        let _ = self.re.encode(buf);
+    fn len(preamble: &Preamble) -> usize {
+        7 * Scalar::len(preamble) + 4 * IndexedWitness::len(preamble) + bool::len(preamble)
     }
 
-    fn try_from_buffer_in_place(&mut self, buf: &[u8]) -> io::Result<()> {
-        let buf = self.qm.try_decode_in_place(buf)?;
-        let buf = self.ql.try_decode_in_place(buf)?;
-        let buf = self.qr.try_decode_in_place(buf)?;
-        let buf = self.qd.try_decode_in_place(buf)?;
-        let buf = self.qc.try_decode_in_place(buf)?;
-        let buf = self.qo.try_decode_in_place(buf)?;
-        let buf = self.pi.try_decode_in_place(buf)?;
-        let buf = self.a.try_decode_in_place(buf)?;
-        let buf = self.b.try_decode_in_place(buf)?;
-        let buf = self.d.try_decode_in_place(buf)?;
-        let buf = self.o.try_decode_in_place(buf)?;
-        let _ = self.re.try_decode_in_place(buf)?;
+    fn to_buffer(&self, preamble: &Preamble, buf: &mut [u8]) {
+        let buf = self.qm.encode(preamble, buf);
+        let buf = self.ql.encode(preamble, buf);
+        let buf = self.qr.encode(preamble, buf);
+        let buf = self.qd.encode(preamble, buf);
+        let buf = self.qc.encode(preamble, buf);
+        let buf = self.qo.encode(preamble, buf);
+        let buf = self.pi.encode(preamble, buf);
+        let buf = self.a.encode(preamble, buf);
+        let buf = self.b.encode(preamble, buf);
+        let buf = self.d.encode(preamble, buf);
+        let buf = self.o.encode(preamble, buf);
+        let _ = self.re.encode(preamble, buf);
+    }
+
+    fn try_from_buffer_in_place(&mut self, preamble: &Preamble, buf: &[u8]) -> io::Result<()> {
+        let buf = self.qm.try_decode_in_place(preamble, buf)?;
+        let buf = self.ql.try_decode_in_place(preamble, buf)?;
+        let buf = self.qr.try_decode_in_place(preamble, buf)?;
+        let buf = self.qd.try_decode_in_place(preamble, buf)?;
+        let buf = self.qc.try_decode_in_place(preamble, buf)?;
+        let buf = self.qo.try_decode_in_place(preamble, buf)?;
+        let buf = self.pi.try_decode_in_place(preamble, buf)?;
+        let buf = self.a.try_decode_in_place(preamble, buf)?;
+        let buf = self.b.try_decode_in_place(preamble, buf)?;
+        let buf = self.d.try_decode_in_place(preamble, buf)?;
+        let buf = self.o.try_decode_in_place(preamble, buf)?;
+        let _ = self.re.try_decode_in_place(preamble, buf)?;
 
         Ok(())
     }
@@ -137,33 +139,5 @@ impl Element for Polynomial {
         self.re.validate(preamble)?;
 
         Ok(())
-    }
-}
-
-impl io::Write for Polynomial {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.try_write(buf)
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        self.qm.flush()?;
-        self.ql.flush()?;
-        self.qr.flush()?;
-        self.qd.flush()?;
-        self.qc.flush()?;
-        self.qo.flush()?;
-        self.pi.flush()?;
-        self.a.flush()?;
-        self.b.flush()?;
-        self.d.flush()?;
-        self.o.flush()?;
-
-        Ok(())
-    }
-}
-
-impl io::Read for Polynomial {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.try_read(buf)
     }
 }

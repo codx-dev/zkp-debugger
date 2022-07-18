@@ -8,30 +8,28 @@ use rand::{Rng, RngCore, SeedableRng};
 
 pub struct CDFGenerator {
     rng: StdRng,
+    preamble: Preamble,
 }
 
 impl CDFGenerator {
-    pub fn new(seed: u64) -> Self {
-        Self::seed_from_u64(seed)
+    pub fn new(seed: u64, preamble: Preamble) -> Self {
+        let rng = StdRng::seed_from_u64(seed);
+
+        Self { rng, preamble }
     }
 
-    pub fn gen_cursor(&mut self, preamble: &Preamble) -> io::Cursor<Vec<u8>> {
-        self.gen_cursor_with_callback(preamble, |w| w, |c| c)
+    pub fn gen_cursor(&mut self) -> io::Cursor<Vec<u8>> {
+        self.gen_cursor_with_callback(|w| w, |c| c)
     }
 
-    pub fn gen_cursor_with_callback<W, C>(
-        &mut self,
-        preamble: &Preamble,
-        w: W,
-        c: C,
-    ) -> io::Cursor<Vec<u8>>
+    pub fn gen_cursor_with_callback<W, C>(&mut self, w: W, c: C) -> io::Cursor<Vec<u8>>
     where
         W: FnMut(Witness) -> Witness,
         C: FnMut(Constraint) -> Constraint,
     {
         let mut cursor = io::Cursor::new(Vec::new());
 
-        let (witnesses, constraints) = self.gen_structurally_sound_circuit(&preamble);
+        let (witnesses, constraints) = self.gen_structurally_sound_circuit();
 
         let witnesses: Vec<Witness> = witnesses.into_iter().map(w).collect();
         let constraints: Vec<Constraint> = constraints.into_iter().map(c).collect();
@@ -131,14 +129,10 @@ impl CDFGenerator {
         Witness::new(id, value, source)
     }
 
-    pub fn gen_valid_indexed_witness(
-        &mut self,
-        preamble: &Preamble,
-        witnesses: &[Witness],
-    ) -> IndexedWitness {
-        let id = self.gen_range(0..preamble.witnesses());
+    pub fn gen_valid_indexed_witness(&mut self, witnesses: &[Witness]) -> IndexedWitness {
+        let id = self.gen_range(0..self.preamble.witnesses());
         let origin = if self.gen() {
-            Some(self.gen_range(0..preamble.constraints()))
+            Some(self.gen_range(0..self.preamble.constraints()))
         } else {
             None
         };
@@ -147,11 +141,8 @@ impl CDFGenerator {
         IndexedWitness::new(id, origin, value)
     }
 
-    pub fn gen_structurally_sound_circuit(
-        &mut self,
-        preamble: &Preamble,
-    ) -> (Vec<Witness>, Vec<Constraint>) {
-        let witnesses: Vec<Witness> = (0..preamble.witnesses())
+    pub fn gen_structurally_sound_circuit(&mut self) -> (Vec<Witness>, Vec<Constraint>) {
+        let witnesses: Vec<Witness> = (0..self.preamble.witnesses())
             .map(|id| {
                 let value = self.gen_scalar();
                 let source = self.gen_source();
@@ -160,7 +151,7 @@ impl CDFGenerator {
             })
             .collect();
 
-        let constraints = (0..preamble.constraints())
+        let constraints = (0..self.preamble.constraints())
             .map(|id| {
                 let qm = self.gen_scalar();
                 let ql = self.gen_scalar();
@@ -170,10 +161,10 @@ impl CDFGenerator {
                 let qo = self.gen_scalar();
                 let pi = self.gen_scalar();
 
-                let a = self.gen_valid_indexed_witness(&preamble, &witnesses);
-                let b = self.gen_valid_indexed_witness(&preamble, &witnesses);
-                let d = self.gen_valid_indexed_witness(&preamble, &witnesses);
-                let o = self.gen_valid_indexed_witness(&preamble, &witnesses);
+                let a = self.gen_valid_indexed_witness(&witnesses);
+                let b = self.gen_valid_indexed_witness(&witnesses);
+                let d = self.gen_valid_indexed_witness(&witnesses);
+                let o = self.gen_valid_indexed_witness(&witnesses);
 
                 let re = self.gen();
 
@@ -186,16 +177,6 @@ impl CDFGenerator {
             .collect();
 
         (witnesses, constraints)
-    }
-}
-
-impl SeedableRng for CDFGenerator {
-    type Seed = <StdRng as SeedableRng>::Seed;
-
-    fn from_seed(seed: Self::Seed) -> Self {
-        Self {
-            rng: StdRng::from_seed(seed),
-        }
     }
 }
 
@@ -234,7 +215,7 @@ fn generate_circuit_is_valid_cdf() {
         let c_len = preamble.constraints() as usize;
 
         let (witnesses, constraints) =
-            CDFGenerator::new(0x348).gen_structurally_sound_circuit(&preamble);
+            CDFGenerator::new(0x348, preamble).gen_structurally_sound_circuit();
 
         assert_eq!(w_len, witnesses.len());
         assert_eq!(c_len, constraints.len());
@@ -250,7 +231,7 @@ fn generate_circuit_is_valid_cdf() {
 
         assert_eq!(
             n,
-            Preamble::LEN + w_len * Witness::LEN + c_len * Constraint::LEN
+            Preamble::LEN + w_len * Witness::len(&preamble) + c_len * Constraint::len(&preamble)
         );
     }
 }

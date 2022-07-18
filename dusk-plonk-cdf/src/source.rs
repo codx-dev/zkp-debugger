@@ -44,22 +44,24 @@ impl Source {
 }
 
 impl Element for Source {
-    const LEN: usize = 2 * u64::LEN + Self::PATH_LEN as usize;
-
     fn zeroed() -> Self {
         Self::default()
     }
 
-    fn to_buffer(&self, buf: &mut [u8]) {
-        let buf = self.line.encode(buf);
-        let buf = self.col.encode(buf);
-        let _ = self.path.encode(buf);
+    fn len(preamble: &Preamble) -> usize {
+        2 * u64::len(preamble) + Self::PATH_LEN as usize
     }
 
-    fn try_from_buffer_in_place(&mut self, buf: &[u8]) -> io::Result<()> {
-        let buf = self.line.try_decode_in_place(buf)?;
-        let buf = self.col.try_decode_in_place(buf)?;
-        let _ = self.path.try_decode_in_place(buf)?;
+    fn to_buffer(&self, preamble: &Preamble, buf: &mut [u8]) {
+        let buf = self.line.encode(preamble, buf);
+        let buf = self.col.encode(preamble, buf);
+        let _ = self.path.encode(preamble, buf);
+    }
+
+    fn try_from_buffer_in_place(&mut self, preamble: &Preamble, buf: &[u8]) -> io::Result<()> {
+        let buf = self.line.try_decode_in_place(preamble, buf)?;
+        let buf = self.col.try_decode_in_place(preamble, buf)?;
+        let _ = self.path.try_decode_in_place(preamble, buf)?;
 
         Ok(())
     }
@@ -70,23 +72,5 @@ impl Element for Source {
         self.path.validate(preamble)?;
 
         Ok(())
-    }
-}
-
-impl io::Write for Source {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.try_write(buf)
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        self.path.flush()?;
-
-        Ok(())
-    }
-}
-
-impl io::Read for Source {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.try_read(buf)
     }
 }

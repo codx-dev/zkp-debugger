@@ -3,16 +3,16 @@
 
 //! The binary format for CDF is a dense linear encoding.
 //!
-//! A circuit is a compositions of items that are either [`crate::cdf::Witness`] or [`crate::cdf::Constraint`].
+//! A circuit is a compositions of items that are either [`Witness`] or [`Constraint`].
 //!
-//! A [`crate::cdf::Witness`] is a constraint system allocated value that is represented by its identifier
-//! and [`crate::cdf::Scalar`] value.
+//! A [`Witness`] is a constraint system allocated value that is represented by its identifier
+//! and [`Scalar`] value.
 //!
-//! A [`crate::cdf::Constraint`] is a [`crate::cdf::Polynomial`] expression represented as a gate of the circuit that will
-//! allow computation in the constraint system. It will evaluate to an [`crate::cdf::Evaluation`] that is the
-//! boolean representation of the result of the gate.
+//! A [`Constraint`] is a [`Polynomial`] expression represented as a gate of the circuit that will
+//! allow computation in the constraint system. It will evaluate to a [`bool`] that is the
+//! representation of the result of the gate.
 //!
-//! Every item of a circuit description contains a mapping to the [`crate::cdf::Source`] file that generated it.
+//! Every item of a circuit description contains a mapping to the [`Source`] file that generated it.
 //! This will allow the debugger to map the constraint to its original Rust source code.
 //!
 //! A circuit description format file will contain a preamble with all its witnesses. Provided
@@ -25,6 +25,8 @@ mod polynomial;
 mod preamble;
 mod source;
 mod witness;
+
+pub(crate) mod bytes;
 
 use std::borrow::Borrow;
 use std::fs::{File, OpenOptions};
@@ -75,7 +77,7 @@ where
 {
     /// Create a new circuit description instance.
     pub fn from_reader(mut source: S) -> io::Result<Self> {
-        Preamble::from_reader(source.by_ref()).map(|preamble| Self { source, preamble })
+        Preamble::try_from_reader(source.by_ref()).map(|preamble| Self { source, preamble })
     }
 }
 
@@ -93,14 +95,14 @@ where
         }
 
         let offset = Preamble::LEN
-            + self.preamble.witnesses() as usize * Witness::LEN
-            + idx * Constraint::LEN;
+            + self.preamble.witnesses() as usize * Witness::len(&self.preamble)
+            + idx * Constraint::len(&self.preamble);
 
         let offset = io::SeekFrom::Start(offset as u64);
 
         self.source.seek(offset)?;
 
-        Constraint::from_reader(self.source.by_ref())
+        bytes::try_from_reader(self.source.by_ref(), &self.preamble)
     }
 
     /// Attempt to read an indexed witness from the source
@@ -112,13 +114,13 @@ where
             ));
         }
 
-        let offset = Preamble::LEN + idx * Witness::LEN;
+        let offset = Preamble::LEN + idx * Witness::len(&self.preamble);
 
         let offset = io::SeekFrom::Start(offset as u64);
 
         self.source.seek(offset)?;
 
-        Witness::from_reader(self.source.by_ref())
+        bytes::try_from_reader(self.source.by_ref(), &self.preamble)
     }
 }
 
@@ -222,14 +224,14 @@ impl<S> CircuitDescription<S> {
         IW: Iterator<Item = BW>,
         IC: Iterator<Item = BC>,
     {
-        let n = preamble.to_writer(writer.by_ref())?;
+        let n = preamble.try_to_writer(writer.by_ref())?;
 
         let n = witnesses
-            .map(|w| w.borrow().to_writer(writer.by_ref()))
+            .map(|w| bytes::try_to_writer(writer.by_ref(), &preamble, w))
             .try_fold::<_, _, io::Result<usize>>(n, |n, x| Ok(n + x?))?;
 
         let n = constraints
-            .map(|c| c.borrow().to_writer(writer.by_ref()))
+            .map(|c| bytes::try_to_writer(writer.by_ref(), &preamble, c))
             .try_fold::<_, _, io::Result<usize>>(n, |n, x| Ok(n + x?))?;
 
         Ok(n)

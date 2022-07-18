@@ -64,7 +64,7 @@ fn next_afore_and_goto_works() {
     let c_len = 20;
     let preamble = Preamble::new(w_len, c_len);
 
-    let cursor = CDFGenerator::new(0x3489).gen_cursor(&preamble);
+    let cursor = CDFGenerator::new(0x3489, preamble).gen_cursor();
     let mut app = App::default_with_cdf(cursor);
 
     assert_eq!(0, app.last_constraint());
@@ -84,8 +84,7 @@ fn continue_and_turn_works() {
 
     // gen a circuit with all evaluations to true, except the 2nd & 11th
     let mut i = 0;
-    let cursor = CDFGenerator::new(0x3489).gen_cursor_with_callback(
-        &preamble,
+    let cursor = CDFGenerator::new(0x3489, preamble).gen_cursor_with_callback(
         |w| w,
         move |c| {
             let id = c.id();
@@ -102,7 +101,7 @@ fn continue_and_turn_works() {
                 b.clone(),
                 d.clone(),
                 o.clone(),
-                i != 1 && i!= 10,
+                i != 1 && i != 10,
             );
             let source = c.source().clone();
 
