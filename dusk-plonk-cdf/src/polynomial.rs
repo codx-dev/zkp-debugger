@@ -144,3 +144,10 @@ impl Element for Polynomial {
         Ok(())
     }
 }
+
+#[test]
+fn validate_works() {
+    Polynomial::zeroed()
+        .validate(&Default::default())
+        .expect("default config validate should pass");
+}

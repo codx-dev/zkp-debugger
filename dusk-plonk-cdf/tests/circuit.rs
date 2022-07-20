@@ -1,4 +1,4 @@
-use std::iter;
+use std::{fs, iter};
 
 use dusk_plonk_cdf::*;
 use dusk_plonk_debugger_utils::*;
@@ -61,12 +61,6 @@ fn shuffled_circuit_is_sound_after_validation() {
             assert_eq!(c, &c_p);
         });
     }
-}
-
-#[test]
-#[should_panic]
-fn witness_count_cant_be_zero() {
-    Preamble::new().with_witnesses(0).with_constraints(100);
 }
 
 #[test]
@@ -215,4 +209,42 @@ fn circuit_data_seek_works_for_witness_and_constraints() {
 
         assert!(result.is_err());
     }
+}
+
+#[test]
+fn file_write_works() {
+    let dir = tempfile::tempdir().expect("failed to create temporary dir");
+    let file = dir.path().join("file-write-works.cdf");
+
+    let preamble = *Preamble::new().with_witnesses(10).with_constraints(100);
+
+    let mut generator = CDFGenerator::new(0x384, preamble);
+    let (witnesses, constraints) = generator.gen_structurally_sound_circuit();
+
+    Encoder::init_file(preamble.config, witnesses.iter(), constraints.iter(), &file)
+        .expect("failed to init file")
+        .write_all()
+        .expect("failed to write file");
+
+    let mut cdf = CircuitDescription::open_read(file).expect("failed to open generated cdf file");
+
+    witnesses.iter().for_each(|w| {
+        let id = w.id();
+        let w_p = cdf
+            .fetch_witness(id as usize)
+            .expect("failed to fetch witness");
+
+        assert_eq!(w, &w_p);
+    });
+
+    constraints.iter().for_each(|c| {
+        let id = c.id();
+        let c_p = cdf
+            .fetch_constraint(id as usize)
+            .expect("failed to fetch constraint");
+
+        assert_eq!(c, &c_p);
+    });
+
+    fs::remove_dir_all(dir).ok();
 }
