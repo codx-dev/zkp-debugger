@@ -9,3 +9,4 @@ description = "PLONK debugger CDF implementation"
 [dev-dependencies]
 dusk-plonk-debugger-utils = { path = "../dusk-plonk-debugger-utils" }
 rand = "0.8"
+tempfile = "3.3"

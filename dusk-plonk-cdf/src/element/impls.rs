@@ -170,3 +170,36 @@ impl<T> Element for PhantomData<T> {
         Ok(())
     }
 }
+
+#[test]
+fn validate_option_works() {
+    Some(34873u64)
+        .validate(&Default::default())
+        .expect("default config validate should pass");
+
+    let opt: Option<u64> = None;
+
+    opt.validate(&Default::default())
+        .expect("default config validate should pass");
+}
+
+#[test]
+fn validate_unit_works() {
+    ().validate(&Default::default())
+        .expect("default config validate should pass");
+}
+
+#[test]
+fn try_from_buffer_in_place_works_with_some() {
+    let val = 39802u64;
+    let bytes = Some(val).to_vec(&Default::default());
+
+    let mut some = Some(1);
+
+    some.try_from_buffer_in_place(&Default::default(), &bytes)
+        .expect("failed to restore option");
+
+    let val_p = some.expect("failed to fetch val");
+
+    assert_eq!(val, val_p);
+}

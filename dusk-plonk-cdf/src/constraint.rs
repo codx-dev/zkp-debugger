@@ -77,3 +77,10 @@ impl Element for Constraint {
         Ok(())
     }
 }
+
+#[test]
+fn validate_works() {
+    Constraint::zeroed()
+        .validate(&Default::default())
+        .expect("default config validate should pass");
+}

@@ -72,3 +72,16 @@ impl<const N: u16> Element for FixedText<N> {
         Ok(())
     }
 }
+
+#[test]
+fn invalid_utf8_wont_panic() {
+    let invalid_utf8 = vec![0, 159, 146, 150];
+    let mut buffer = (invalid_utf8.len() as u16).to_le_bytes().to_vec();
+
+    buffer.extend(&invalid_utf8);
+
+    String::from_utf8(invalid_utf8).expect_err("invalid char shouldn't generate string");
+
+    FixedText::<1>::try_from_buffer(&Default::default(), &buffer)
+        .expect_err("invalid char shouldn't generate fixed text");
+}

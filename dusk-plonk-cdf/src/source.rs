@@ -76,3 +76,35 @@ impl Element for Source {
         Ok(())
     }
 }
+
+#[test]
+fn open_canonical_path_works() {
+    use std::fs;
+
+    let dir = tempfile::tempdir().expect("failed to create temporary dir");
+    let file = dir.path().join("open-canon-path-works.txt");
+
+    fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .open(&file)
+        .expect("failed to open new file");
+
+    let path = FixedText::from(format!("{}", file.display()));
+
+    let line = 20;
+    let col = 5;
+
+    let source = Source::new(line, col, path);
+
+    let canon = file.canonicalize().expect("failed to canon original path");
+    let canonical = source
+        .canonical_path()
+        .expect("failed to open canonical path");
+
+    assert_eq!(canon, canonical);
+
+    source.open().expect("failed to open source path");
+
+    fs::remove_dir_all(dir).ok();
+}

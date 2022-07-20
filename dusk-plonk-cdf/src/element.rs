@@ -63,18 +63,6 @@ pub trait Element: Sized {
         Ok(slf)
     }
 
-    /// Assert the given buffer is big enough to store the element
-    fn validate_buffer(config: &Self::Config, buf: &[u8]) -> io::Result<()> {
-        if buf.len() < Self::len(config) {
-            return Err(io::Error::new(
-                io::ErrorKind::UnexpectedEof,
-                "the provided buffer isn't big enough to store a circuit definition format element",
-            ));
-        }
-
-        Ok(())
-    }
-
     /// Write an element from the buffer, and return the remainder bytes
     ///
     /// Assume its inside a validate buffer context

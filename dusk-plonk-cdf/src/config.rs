@@ -6,6 +6,12 @@ use crate::{Element, Preamble};
 /// Empty config set for atomic serialization that is not parametrizable
 pub struct AtomicConfig;
 
+impl Default for AtomicConfig {
+    fn default() -> Self {
+        AtomicConfig
+    }
+}
+
 impl From<&Config> for AtomicConfig {
     fn from(_config: &Config) -> Self {
         AtomicConfig
@@ -78,4 +84,31 @@ impl Element for Config {
     fn validate(&self, _preamble: &Preamble) -> io::Result<()> {
         Ok(())
     }
+}
+
+#[test]
+fn builder_functions_works() {
+    assert!(
+        Config::new()
+            .with_zeroed_scalar_values(true)
+            .zeroed_scalar_values
+    );
+
+    assert!(
+        !Config::new()
+            .with_zeroed_scalar_values(false)
+            .zeroed_scalar_values
+    );
+}
+
+#[test]
+fn zeroed_works() {
+    assert_eq!(Config::zeroed(), Config::DEFAULT)
+}
+
+#[test]
+fn validate_works() {
+    Config::default()
+        .validate(&Default::default())
+        .expect("default config validate should pass");
 }

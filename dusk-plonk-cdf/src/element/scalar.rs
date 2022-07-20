@@ -77,3 +77,26 @@ impl Element for Scalar {
         Ok(())
     }
 }
+
+#[test]
+fn bytes_encode_works() {
+    let mut bytes = [0xfa; Scalar::LEN];
+    let mut scalar = Scalar::from(bytes);
+
+    assert_eq!(&bytes, scalar.as_ref());
+    assert_eq!(bytes, *scalar);
+    assert_eq!(&mut bytes, scalar.deref_mut());
+}
+
+#[test]
+fn encode_zeroed_len_is_consitent() {
+    let config = *Config::new().with_zeroed_scalar_values(false);
+    let len = <Scalar as Element>::len(&config);
+
+    assert_eq!(Scalar::LEN, len);
+
+    let config = *Config::new().with_zeroed_scalar_values(true);
+    let len = <Scalar as Element>::len(&config);
+
+    assert_eq!(0, len);
+}

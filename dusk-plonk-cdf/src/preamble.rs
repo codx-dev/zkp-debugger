@@ -38,10 +38,6 @@ impl Preamble {
 
     /// Set the witnesses count
     pub fn with_witnesses(&mut self, witnesses: usize) -> &mut Self {
-        // Empty witness set can't produce a valid PLONK circuit since the first witness is
-        // reserved per protocol
-        debug_assert!(witnesses > 0);
-
         self.witnesses = witnesses;
         self
     }
@@ -115,4 +111,16 @@ impl Element for Preamble {
 
         Ok(())
     }
+}
+
+#[test]
+fn validate_works() {
+    Preamble::zeroed()
+        .validate(&Default::default())
+        .expect("default config validate should pass");
+
+    Preamble::new()
+        .with_witnesses(0)
+        .validate(&Default::default())
+        .expect_err("zeroed witness count isn't a valid circuit");
 }
