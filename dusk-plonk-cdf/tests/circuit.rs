@@ -7,10 +7,10 @@ use rand::prelude::*;
 #[test]
 fn shuffled_circuit_is_sound_after_validation() {
     let preambles = vec![
-        Preamble::new(1, 0),
-        Preamble::new(1, 1),
-        Preamble::new(1, 10),
-        Preamble::new(100, 1000),
+        *Preamble::new().with_witnesses(1).with_constraints(0),
+        *Preamble::new().with_witnesses(1).with_constraints(1),
+        *Preamble::new().with_witnesses(1).with_constraints(10),
+        *Preamble::new().with_witnesses(100).with_constraints(1000),
     ];
 
     for preamble in preambles {
@@ -31,9 +31,12 @@ fn shuffled_circuit_is_sound_after_validation() {
             assert_ne!(constraints, shuffled_c);
         }
 
-        let (p, w, c) =
-            CircuitDescriptionUnit::into_valid_cdf(shuffled_w.into_iter(), shuffled_c.into_iter())
-                .expect("failed to validate circuit");
+        let (p, w, c) = CircuitDescriptionUnit::into_valid_cdf(
+            Preamble::new(),
+            shuffled_w.into_iter(),
+            shuffled_c.into_iter(),
+        )
+        .expect("failed to validate circuit");
 
         let w: Vec<Witness> = w.collect();
         let c: Vec<Constraint> = c.collect();
@@ -55,12 +58,12 @@ fn shuffled_circuit_is_sound_after_validation() {
 #[test]
 #[should_panic]
 fn witness_count_cant_be_zero() {
-    Preamble::new(0, 100);
+    Preamble::new().with_witnesses(0).with_constraints(100);
 }
 
 #[test]
 fn single_witness_circuit_is_valid() {
-    let preamble = Preamble::new(1, 0);
+    let preamble = *Preamble::new().with_witnesses(1).with_constraints(0);
     let mut generator = CDFGenerator::new(0x384, preamble);
 
     let id = 0;
@@ -69,16 +72,20 @@ fn single_witness_circuit_is_valid() {
 
     let witness = Witness::new(id, value, source);
 
-    let (p, _, _) = CircuitDescriptionUnit::into_valid_cdf(iter::once(witness), iter::empty())
-        .expect("failed to validate circuit");
+    let (p, _, _) = CircuitDescriptionUnit::into_valid_cdf(
+        Default::default(),
+        iter::once(witness),
+        iter::empty(),
+    )
+    .expect("failed to validate circuit");
 
-    assert_eq!(p.witnesses(), 1);
-    assert_eq!(p.constraints(), 0);
+    assert_eq!(p.witnesses, 1);
+    assert_eq!(p.constraints, 0);
 }
 
 #[test]
 fn witness_must_start_at_zero() {
-    let preamble = Preamble::new(1, 0);
+    let preamble = *Preamble::new().with_witnesses(1).with_constraints(0);
     let mut generator = CDFGenerator::new(0x384, preamble);
 
     let id = 1;
@@ -87,14 +94,18 @@ fn witness_must_start_at_zero() {
 
     let witness = Witness::new(id, value, source);
 
-    let result = CircuitDescriptionUnit::into_valid_cdf(iter::once(witness), iter::empty());
+    let result = CircuitDescriptionUnit::into_valid_cdf(
+        Default::default(),
+        iter::once(witness),
+        iter::empty(),
+    );
 
     assert!(result.is_err());
 }
 
 #[test]
 fn constraint_must_start_at_zero() {
-    let preamble = Preamble::new(1, 1);
+    let preamble = *Preamble::new().with_witnesses(1).with_constraints(1);
     let mut generator = CDFGenerator::new(0x384, preamble);
 
     let (witnesses, constraints) = generator.gen_structurally_sound_circuit();
@@ -109,6 +120,7 @@ fn constraint_must_start_at_zero() {
 
     // Sanity check
     let (p, _, _) = CircuitDescriptionUnit::into_valid_cdf(
+        Default::default(),
         iter::once(witness.clone()),
         iter::once(constraint.clone()),
     )
@@ -121,8 +133,11 @@ fn constraint_must_start_at_zero() {
 
     let constraint = Constraint::new(id, polynomial, source);
 
-    let result =
-        CircuitDescriptionUnit::into_valid_cdf(iter::once(witness), iter::once(constraint));
+    let result = CircuitDescriptionUnit::into_valid_cdf(
+        Default::default(),
+        iter::once(witness),
+        iter::once(constraint),
+    );
 
     assert!(result.is_err());
 }
@@ -130,10 +145,10 @@ fn constraint_must_start_at_zero() {
 #[test]
 fn circuit_data_seek_works_for_witness_and_constraints() {
     let preambles = vec![
-        Preamble::new(1, 0),
-        Preamble::new(1, 10),
-        Preamble::new(10, 0),
-        Preamble::new(10, 100),
+        *Preamble::new().with_witnesses(1).with_constraints(0),
+        *Preamble::new().with_witnesses(1).with_constraints(10),
+        *Preamble::new().with_witnesses(10).with_constraints(0),
+        *Preamble::new().with_witnesses(10).with_constraints(100),
     ];
 
     for preamble in preambles {
@@ -144,6 +159,7 @@ fn circuit_data_seek_works_for_witness_and_constraints() {
 
         CircuitDescriptionUnit::write_all(
             &mut cursor,
+            Default::default(),
             witnesses.clone().into_iter(),
             constraints.clone().into_iter(),
         )

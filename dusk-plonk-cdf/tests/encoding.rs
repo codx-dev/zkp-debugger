@@ -9,13 +9,13 @@ where
     I: Iterator<Item = E>,
 {
     let preambles = vec![
-        Preamble::new(1, 0),
-        Preamble::new(1, 1),
-        Preamble::new(1, 10),
-        Preamble::new(10, 0),
-        Preamble::new(10, 1),
-        Preamble::new(10, 10),
-        Preamble::new(10, 100),
+        *Preamble::new().with_witnesses(1).with_constraints(0),
+        *Preamble::new().with_witnesses(1).with_constraints(1),
+        *Preamble::new().with_witnesses(1).with_constraints(10),
+        *Preamble::new().with_witnesses(10).with_constraints(0),
+        *Preamble::new().with_witnesses(10).with_constraints(1),
+        *Preamble::new().with_witnesses(10).with_constraints(10),
+        *Preamble::new().with_witnesses(10).with_constraints(100),
     ];
 
     for preamble in preambles {
@@ -102,7 +102,7 @@ fn encode_preamble() {
 
     impl Element for PreambleElement {
         fn zeroed() -> Self {
-            Self(Preamble::ZEROED)
+            Self(Default::default())
         }
 
         fn len(_preamble: &Preamble) -> usize {
@@ -126,13 +126,24 @@ fn encode_preamble() {
         }
     }
 
-    encode_decode_element(iter::once(PreambleElement(Preamble::new(1, 0))));
-    encode_decode_element(iter::once(PreambleElement(Preamble::new(u64::MAX, 0))));
-    encode_decode_element(iter::once(PreambleElement(Preamble::new(1, u64::MAX))));
-    encode_decode_element(iter::once(PreambleElement(Preamble::new(
-        u64::MAX,
-        u64::MAX,
-    ))));
+    encode_decode_element(iter::once(PreambleElement(
+        *Preamble::new().with_witnesses(1).with_constraints(0),
+    )));
+    encode_decode_element(iter::once(PreambleElement(
+        *Preamble::new()
+            .with_witnesses(usize::MAX)
+            .with_constraints(0),
+    )));
+    encode_decode_element(iter::once(PreambleElement(
+        *Preamble::new()
+            .with_witnesses(1)
+            .with_constraints(usize::MAX),
+    )));
+    encode_decode_element(iter::once(PreambleElement(
+        *Preamble::new()
+            .with_witnesses(usize::MAX)
+            .with_constraints(usize::MAX),
+    )));
 }
 
 #[test]
@@ -171,7 +182,7 @@ fn encode_indexed_witness() {
 
 #[test]
 fn encode_generated_witnesses() {
-    let preamble = Preamble::new(100, 10);
+    let preamble = *Preamble::new().with_witnesses(100).with_constraints(10);
     let mut generator = CDFGenerator::new(0x8437, preamble);
 
     encode_decode_element((0..100).map(|_| generator.gen_witness()));
@@ -179,7 +190,7 @@ fn encode_generated_witnesses() {
 
 #[test]
 fn encode_generated_constraints() {
-    let preamble = Preamble::new(100, 10);
+    let preamble = *Preamble::new().with_witnesses(100).with_constraints(10);
     let mut generator = CDFGenerator::new(0x8437, preamble);
 
     encode_decode_element((0..100).map(|_| generator.gen_constraint()));

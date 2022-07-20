@@ -2,7 +2,7 @@ use std::fs::{File, OpenOptions};
 use std::io;
 use std::path::{Path, PathBuf};
 
-use super::{Element, FixedText, Preamble};
+use crate::{Config, Element, FixedText, Preamble, AtomicConfig};
 
 /// Source file representation for debug mapping, including line and column of a file
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -44,24 +44,26 @@ impl Source {
 }
 
 impl Element for Source {
+    type Config = Config;
+
     fn zeroed() -> Self {
         Self::default()
     }
 
-    fn len(preamble: &Preamble) -> usize {
-        2 * u64::len(preamble) + Self::PATH_LEN as usize
+    fn len(_config: &Self::Config) -> usize {
+        2 * u64::len(&AtomicConfig) + Self::PATH_LEN as usize
     }
 
-    fn to_buffer(&self, preamble: &Preamble, buf: &mut [u8]) {
-        let buf = self.line.encode(preamble, buf);
-        let buf = self.col.encode(preamble, buf);
-        let _ = self.path.encode(preamble, buf);
+    fn to_buffer(&self, config: &Self::Config, buf: &mut [u8]) {
+        let buf = self.line.encode(&AtomicConfig, buf);
+        let buf = self.col.encode(&AtomicConfig, buf);
+        let _ = self.path.encode(config, buf);
     }
 
-    fn try_from_buffer_in_place(&mut self, preamble: &Preamble, buf: &[u8]) -> io::Result<()> {
-        let buf = self.line.try_decode_in_place(preamble, buf)?;
-        let buf = self.col.try_decode_in_place(preamble, buf)?;
-        let _ = self.path.try_decode_in_place(preamble, buf)?;
+    fn try_from_buffer_in_place(&mut self, config: &Self::Config, buf: &[u8]) -> io::Result<()> {
+        let buf = self.line.try_decode_in_place(&AtomicConfig, buf)?;
+        let buf = self.col.try_decode_in_place(&AtomicConfig, buf)?;
+        let _ = self.path.try_decode_in_place(config, buf)?;
 
         Ok(())
     }

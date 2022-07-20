@@ -1,0 +1,67 @@
+use core::mem;
+use std::io;
+
+use crate::{Element, Preamble};
+
+/// Empty config set for atomic serialization that is not parametrizable
+pub struct AtomicConfig;
+
+/// Configuration parameters for encoding and decoding
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Config {
+    /// Flag to zero skip scalar values during encoding, and zero them during decoding
+    pub zeroed_scalar_values: bool,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl Config {
+    /// Serialized length
+    pub const LEN: usize = mem::size_of::<bool>();
+
+    /// Default value as constant
+    pub const DEFAULT: Self = Self {
+        zeroed_scalar_values: false,
+    };
+
+    /// Create a new config instance.
+    pub const fn new() -> Self {
+        Self::DEFAULT
+    }
+
+    /// Set the flag to cache the source path
+    pub fn with_zeroed_scalar_values(&mut self, zeroed_scalar_values: bool) -> &mut Self {
+        self.zeroed_scalar_values = zeroed_scalar_values;
+        self
+    }
+}
+
+impl Element for Config {
+    type Config = AtomicConfig;
+
+    fn zeroed() -> Self {
+        Self::DEFAULT
+    }
+
+    fn len(_config: &Self::Config) -> usize {
+        Self::LEN
+    }
+
+    fn to_buffer(&self, _config: &Self::Config, buf: &mut [u8]) {
+        let _ = self.zeroed_scalar_values.encode(&AtomicConfig, buf);
+    }
+
+    fn try_from_buffer_in_place(&mut self, _config: &Self::Config, buf: &[u8]) -> io::Result<()> {
+        let _ = self.zeroed_scalar_values.try_decode_in_place(&AtomicConfig, buf)?;
+
+        Ok(())
+    }
+
+    fn validate(&self, _preamble: &Preamble) -> io::Result<()> {
+        Ok(())
+    }
+}

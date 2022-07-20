@@ -4,24 +4,27 @@ mod scalar;
 
 use std::io;
 
-use super::Preamble;
+use crate::Preamble;
 
 pub use fixed_text::FixedText;
 pub use scalar::Scalar;
 
 /// Describe a CDF element
 pub trait Element: Sized {
+    /// Configuration for the serialization and deserialization
+    type Config;
+
     /// A zeroed/default instance of the type.
     fn zeroed() -> Self;
 
     /// Serializable length
     ///
-    /// Every element is a function of the preamble so seek/lookups will be constant-time.
+    /// Every element is a function of the config so seek/lookups will be constant-time.
     ///
     /// The serialized type must not contain more bytes than specified here. However, it might,
     /// optionally, use less bytes. Regardless, it will consume this defined amount of bytes during
     /// serialization.
-    fn len(preamble: &Preamble) -> usize;
+    fn len(config: &Self::Config) -> usize;
 
     /// Write the type into the buffer.
     ///
@@ -31,38 +34,38 @@ pub trait Element: Sized {
     ///
     /// This will enforce the implementors to be designed to not hold stateful serialization,
     /// allowing greater flexibility of usage.
-    fn to_buffer(&self, preamble: &Preamble, buf: &mut [u8]);
+    fn to_buffer(&self, config: &Self::Config, buf: &mut [u8]);
 
     /// Deserialize the type from a given buffer
     ///
     /// As in [`Self::to_buffer`] the implementor of this function can assume the buffer is big
     /// enough to contain all the required bytes.
-    fn try_from_buffer_in_place(&mut self, preamble: &Preamble, buf: &[u8]) -> io::Result<()>;
+    fn try_from_buffer_in_place(&mut self, config: &Self::Config, buf: &[u8]) -> io::Result<()>;
 
     /// Perform the internal validations of the associated element
     fn validate(&self, preamble: &Preamble) -> io::Result<()>;
 
     /// Serialize the object into a bytes array.
-    fn to_vec(&self, preamble: &Preamble) -> Vec<u8> {
-        let mut bytes = vec![0u8; Self::len(preamble)];
+    fn to_vec(&self, config: &Self::Config) -> Vec<u8> {
+        let mut bytes = vec![0u8; Self::len(config)];
 
-        self.to_buffer(preamble, &mut bytes);
+        self.to_buffer(config, &mut bytes);
 
         bytes
     }
 
     /// Create a new instance of the type from the provided buffer
-    fn try_from_buffer(preamble: &Preamble, buf: &[u8]) -> io::Result<Self> {
+    fn try_from_buffer(config: &Self::Config, buf: &[u8]) -> io::Result<Self> {
         let mut slf = Self::zeroed();
 
-        slf.try_from_buffer_in_place(preamble, buf)?;
+        slf.try_from_buffer_in_place(config, buf)?;
 
         Ok(slf)
     }
 
     /// Assert the given buffer is big enough to store the element
-    fn validate_buffer(preamble: &Preamble, buf: &[u8]) -> io::Result<()> {
-        if buf.len() < Self::len(preamble) {
+    fn validate_buffer(config: &Self::Config, buf: &[u8]) -> io::Result<()> {
+        if buf.len() < Self::len(config) {
             return Err(io::Error::new(
                 io::ErrorKind::UnexpectedEof,
                 "the provided buffer isn't big enough to store a circuit definition format element",
@@ -77,20 +80,20 @@ pub trait Element: Sized {
     /// Assume its inside a validate buffer context
     fn try_decode_in_place<'a>(
         &mut self,
-        preamble: &Preamble,
+        config: &Self::Config,
         buf: &'a [u8],
     ) -> io::Result<&'a [u8]> {
-        self.try_from_buffer_in_place(preamble, buf)
-            .map(|_| &buf[Self::len(preamble)..])
+        self.try_from_buffer_in_place(config, buf)
+            .map(|_| &buf[Self::len(config)..])
     }
 
     /// Write an element from the buffer, and return the remainder bytes
     ///
     /// Assume its inside a validate buffer context
-    fn try_decode<'a>(preamble: &Preamble, buf: &'a [u8]) -> io::Result<(Self, &'a [u8])> {
+    fn try_decode<'a>(config: &Self::Config, buf: &'a [u8]) -> io::Result<(Self, &'a [u8])> {
         let mut slf = Self::zeroed();
 
-        let buf = slf.try_decode_in_place(preamble, buf)?;
+        let buf = slf.try_decode_in_place(config, buf)?;
 
         Ok((slf, buf))
     }
@@ -98,9 +101,28 @@ pub trait Element: Sized {
     /// Read an element into the buffer, returning the remainder bytes
     ///
     /// Assume its inside a validate buffer context
-    fn encode<'a>(&self, preamble: &Preamble, buf: &'a mut [u8]) -> &'a mut [u8] {
-        self.to_buffer(preamble, buf);
+    fn encode<'a>(&self, config: &Self::Config, buf: &'a mut [u8]) -> &'a mut [u8] {
+        self.to_buffer(config, buf);
 
-        &mut buf[Self::len(preamble)..]
+        &mut buf[Self::len(config)..]
+    }
+
+    /// Send the bytes representation of an element to a writer
+    fn try_to_writer<W>(&self, mut writer: W, config: &Self::Config) -> io::Result<usize>
+    where
+        W: io::Write,
+    {
+        writer.write(&self.to_vec(config))
+    }
+
+    /// Fetch a new element from a reader
+    fn try_from_reader<R>(mut reader: R, config: &Self::Config) -> io::Result<Self>
+    where
+        R: io::Read,
+    {
+        let mut slf = vec![0u8; Self::len(config)];
+        let _ = reader.read(&mut slf)?;
+
+        Self::try_from_buffer(config, &slf)
     }
 }

@@ -1,4 +1,3 @@
-use std::fs;
 use std::path::PathBuf;
 
 use dusk_bls12_381::BlsScalar;
@@ -221,14 +220,16 @@ fn main() {
 
         constraints.push(constraint);
 
-        fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .open(output_ok)
-            .and_then(|f| {
-                CircuitDescriptionUnit::write_all(f, witnesses.into_iter(), constraints.into_iter())
-            })
-            .expect("failed to write output");
+        let config = Config::DEFAULT;
+
+        Encoder::init_file(
+            config,
+            witnesses.into_iter(),
+            constraints.into_iter(),
+            output_ok,
+        )
+        .and_then(|mut f| f.write_all())
+        .expect("failed to write output OK file");
     }
 
     // ok output
@@ -399,13 +400,15 @@ fn main() {
 
         constraints.push(constraint);
 
-        fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .open(output_wrong)
-            .and_then(|f| {
-                CircuitDescriptionUnit::write_all(f, witnesses.into_iter(), constraints.into_iter())
-            })
-            .expect("failed to write output");
+        let config = Config::DEFAULT;
+
+        Encoder::init_file(
+            config,
+            witnesses.into_iter(),
+            constraints.into_iter(),
+            output_wrong,
+        )
+        .and_then(|mut f| f.write_all())
+        .expect("failed to write output WRONG file");
     }
 }
