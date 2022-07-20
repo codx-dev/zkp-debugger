@@ -125,9 +125,7 @@ where
 }
 
 impl Element for () {
-    fn zeroed() -> Self {
-        ()
-    }
+    fn zeroed() -> Self {}
 
     fn len(_preamble: &Preamble) -> usize {
         0

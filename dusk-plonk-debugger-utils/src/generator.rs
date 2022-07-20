@@ -22,6 +22,9 @@ impl CDFGenerator {
         self.gen_cursor_with_callback(|w| w, |c| c)
     }
 
+    // clippy isn't smart enough here to understand its a callback function, so the collect is
+    // needed
+    #[allow(clippy::needless_collect)]
     pub fn gen_cursor_with_callback<W, C>(&mut self, w: W, c: C) -> io::Cursor<Vec<u8>>
     where
         W: FnMut(Witness) -> Witness,

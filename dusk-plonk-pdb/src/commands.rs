@@ -88,7 +88,7 @@ impl CommandParser {
 
     /// Attempt to parse a command, providing completion information
     pub fn parse_completable(&self, line: &str) -> io::Result<ParsedLine> {
-        let ends_with_space = line.ends_with(" ");
+        let ends_with_space = line.ends_with(' ');
         let tokens = Self::split(line)?;
 
         if tokens.is_empty() {
@@ -137,7 +137,7 @@ impl CommandParser {
         if let Some(completion) = instruction.complete_binary(self, arg) {
             return Ok(ParsedLine::Completable {
                 instruction: *instruction,
-                completion: completion,
+                completion,
             });
         }
 
