@@ -38,7 +38,7 @@ where
     C: Borrow<Constraint>,
     CI: Iterator<Item = C> + ExactSizeIterator,
 {
-    /// Intialize a preamble from a config file
+    /// Intialize a preamble from a witness & constraints iterator
     pub fn init_preamble(config: Config, witnesses: &WI, constraints: &CI) -> Preamble {
         *Preamble::new()
             .with_config(config)
