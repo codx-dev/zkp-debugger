@@ -183,7 +183,7 @@ impl<S> CircuitDescription<S> {
             let a = w[0].id();
             let b = w[1].id();
 
-            (a.saturating_add(1) == b).then(|| ()).ok_or_else(|| {
+            (a.saturating_add(1) == b).then_some(()).ok_or_else(|| {
                 io::Error::new(
                     io::ErrorKind::Other,
                     "the provided witnesses does not compute to an ordered dense unique indexed set"
@@ -195,7 +195,7 @@ impl<S> CircuitDescription<S> {
             let a = c[0].id();
             let b = c[1].id();
 
-            (a.saturating_add(1) == b).then(|| ())
+            (a.saturating_add(1) == b).then_some(())
                 .ok_or_else(|| io::Error::new(
                     io::ErrorKind::Other,
                     "the provided constraints does not compute to an ordered dense unique indexed set"
