@@ -20,8 +20,7 @@ pub struct Polynomial {
 }
 
 impl Polynomial {
-    // Selectors contain multiple - but fixed - circuit definitions. Its not desirable to have
-    // error-prone variable len structs such as vec because these might be misused
+    // TODO refactor into type, as clippy suggests
     #[allow(clippy::too_many_arguments)]
     /// Create a new polynomial
     pub const fn new(
@@ -59,6 +58,8 @@ impl Polynomial {
         self.re
     }
 
+    // TODO refactor into type, as clippy suggests
+    #[allow(clippy::type_complexity)]
     /// Fetch the constraint internals
     pub const fn internals(
         &self,

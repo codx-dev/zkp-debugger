@@ -127,9 +127,7 @@ where
 impl Element for () {
     type Config = Config;
 
-    fn zeroed() -> Self {
-        ()
-    }
+    fn zeroed() -> Self {}
 
     fn len(_config: &Self::Config) -> usize {
         0
