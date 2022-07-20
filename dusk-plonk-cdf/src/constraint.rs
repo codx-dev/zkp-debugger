@@ -1,6 +1,6 @@
 use std::io;
 
-use super::{Element, Polynomial, Preamble, Scalar, Source};
+use crate::{AtomicConfig, Config, Element, Polynomial, Preamble, Scalar, Source};
 
 /// Constraint gate of a circuit
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
@@ -42,27 +42,29 @@ impl Constraint {
 }
 
 impl Element for Constraint {
+    type Config = Config;
+
     fn zeroed() -> Self {
         Self::default()
     }
 
-    fn len(preamble: &Preamble) -> usize {
-        u64::len(preamble)
-            + Scalar::len(preamble)
-            + Polynomial::len(preamble)
-            + Source::len(preamble)
+    fn len(config: &Self::Config) -> usize {
+        u64::len(&AtomicConfig)
+            + Scalar::len(config)
+            + Polynomial::len(config)
+            + Source::len(config)
     }
 
-    fn to_buffer(&self, preamble: &Preamble, buf: &mut [u8]) {
-        let buf = self.id.encode(preamble, buf);
-        let buf = self.polynomial.encode(preamble, buf);
-        let _ = self.source.encode(preamble, buf);
+    fn to_buffer(&self, config: &Self::Config, buf: &mut [u8]) {
+        let buf = self.id.encode(&AtomicConfig, buf);
+        let buf = self.polynomial.encode(config, buf);
+        let _ = self.source.encode(config, buf);
     }
 
-    fn try_from_buffer_in_place(&mut self, preamble: &Preamble, buf: &[u8]) -> io::Result<()> {
-        let buf = self.id.try_decode_in_place(preamble, buf)?;
-        let buf = self.polynomial.try_decode_in_place(preamble, buf)?;
-        let _ = self.source.try_decode_in_place(preamble, buf)?;
+    fn try_from_buffer_in_place(&mut self, config: &Self::Config, buf: &[u8]) -> io::Result<()> {
+        let buf = self.id.try_decode_in_place(&AtomicConfig, buf)?;
+        let buf = self.polynomial.try_decode_in_place(config, buf)?;
+        let _ = self.source.try_decode_in_place(config, buf)?;
 
         Ok(())
     }

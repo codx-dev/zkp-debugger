@@ -1,8 +1,7 @@
 use std::ops::Deref;
 use std::{fmt, io, mem};
 
-use super::{Element, Preamble};
-use crate::bytes;
+use crate::{bytes, AtomicConfig, Config, Element, Preamble};
 
 /// Text representation with fixed `N` bytes.
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -42,24 +41,26 @@ impl<const N: u16> From<FixedText<N>> for String {
 }
 
 impl<const N: u16> Element for FixedText<N> {
+    type Config = Config;
+
     fn zeroed() -> Self {
         Self::default()
     }
 
-    fn len(_preamble: &Preamble) -> usize {
+    fn len(_config: &Self::Config) -> usize {
         N as usize
     }
 
-    fn to_buffer(&self, preamble: &Preamble, buf: &mut [u8]) {
+    fn to_buffer(&self, _config: &Self::Config, buf: &mut [u8]) {
         let bytes = self.0.as_bytes();
 
-        let buf = (bytes.len() as u16).encode(preamble, buf);
+        let buf = (bytes.len() as u16).encode(&AtomicConfig, buf);
 
         let _ = bytes::encode_bytes(bytes, buf);
     }
 
-    fn try_from_buffer_in_place(&mut self, preamble: &Preamble, buf: &[u8]) -> io::Result<()> {
-        let (len, buf) = u16::try_decode(preamble, buf)?;
+    fn try_from_buffer_in_place(&mut self, _config: &Self::Config, buf: &[u8]) -> io::Result<()> {
+        let (len, buf) = u16::try_decode(&AtomicConfig, buf)?;
 
         self.0 = String::from_utf8(buf[..len as usize].to_vec())
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
@@ -67,7 +68,7 @@ impl<const N: u16> Element for FixedText<N> {
         Ok(())
     }
 
-    fn validate(&self, _preamble: &Preamble) -> io::Result<()> {
+    fn validate(&self, _config: &Preamble) -> io::Result<()> {
         Ok(())
     }
 }

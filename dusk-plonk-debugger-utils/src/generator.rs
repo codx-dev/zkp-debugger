@@ -30,19 +30,18 @@ impl CDFGenerator {
         W: FnMut(Witness) -> Witness,
         C: FnMut(Constraint) -> Constraint,
     {
-        let mut cursor = io::Cursor::new(Vec::new());
-
+        let config = Config::DEFAULT;
         let (witnesses, constraints) = self.gen_structurally_sound_circuit();
 
         let witnesses: Vec<Witness> = witnesses.into_iter().map(w).collect();
         let constraints: Vec<Constraint> = constraints.into_iter().map(c).collect();
 
-        CircuitDescriptionUnit::write_all(
-            &mut cursor,
-            witnesses.into_iter(),
-            constraints.into_iter(),
-        )
-        .expect("failed to serialize circuit");
+        let mut encoder =
+            Encoder::init_cursor(config, witnesses.into_iter(), constraints.into_iter());
+
+        encoder.write_all().expect("failed to serialize circuit");
+
+        let mut cursor = encoder.into_inner();
 
         cursor.set_position(0);
 
@@ -77,10 +76,6 @@ impl CDFGenerator {
         text.truncate(n);
 
         text.into()
-    }
-
-    pub fn gen_preamble(&mut self) -> Preamble {
-        Preamble::new(self.gen(), self.gen())
     }
 
     pub fn gen_indexed_witness(&mut self) -> IndexedWitness {
@@ -133,28 +128,28 @@ impl CDFGenerator {
     }
 
     pub fn gen_valid_indexed_witness(&mut self, witnesses: &[Witness]) -> IndexedWitness {
-        let id = self.gen_range(0..self.preamble.witnesses());
+        let id = self.gen_range(0..self.preamble.witnesses);
         let origin = if self.gen() {
-            Some(self.gen_range(0..self.preamble.constraints()))
+            Some(self.gen_range(0..self.preamble.constraints) as u64)
         } else {
             None
         };
         let value = *witnesses[id as usize].value();
 
-        IndexedWitness::new(id, origin, value)
+        IndexedWitness::new(id as u64, origin, value)
     }
 
     pub fn gen_structurally_sound_circuit(&mut self) -> (Vec<Witness>, Vec<Constraint>) {
-        let witnesses: Vec<Witness> = (0..self.preamble.witnesses())
+        let witnesses: Vec<Witness> = (0..self.preamble.witnesses)
             .map(|id| {
                 let value = self.gen_scalar();
                 let source = self.gen_source();
 
-                Witness::new(id, value, source)
+                Witness::new(id as u64, value, source)
             })
             .collect();
 
-        let constraints = (0..self.preamble.constraints())
+        let constraints = (0..self.preamble.constraints)
             .map(|id| {
                 let qm = self.gen_scalar();
                 let ql = self.gen_scalar();
@@ -175,7 +170,7 @@ impl CDFGenerator {
 
                 let source = self.gen_source();
 
-                Constraint::new(id, polynomial, source)
+                Constraint::new(id as u64, polynomial, source)
             })
             .collect();
 
@@ -204,18 +199,18 @@ impl RngCore for CDFGenerator {
 #[test]
 fn generate_circuit_is_valid_cdf() {
     let cases = vec![
-        Preamble::new(1, 0),
-        Preamble::new(1, 1),
-        Preamble::new(1, 10),
-        Preamble::new(10, 0),
-        Preamble::new(10, 10),
-        Preamble::new(10, 100),
-        Preamble::new(100, 10),
+        *Preamble::new().with_witnesses(1).with_constraints(0),
+        *Preamble::new().with_witnesses(1).with_constraints(1),
+        *Preamble::new().with_witnesses(1).with_constraints(10),
+        *Preamble::new().with_witnesses(10).with_constraints(0),
+        *Preamble::new().with_witnesses(10).with_constraints(10),
+        *Preamble::new().with_witnesses(10).with_constraints(100),
+        *Preamble::new().with_witnesses(100).with_constraints(10),
     ];
 
     for preamble in cases {
-        let w_len = preamble.witnesses() as usize;
-        let c_len = preamble.constraints() as usize;
+        let w_len = preamble.witnesses;
+        let c_len = preamble.constraints;
 
         let (witnesses, constraints) =
             CDFGenerator::new(0x348, preamble).gen_structurally_sound_circuit();
@@ -223,18 +218,19 @@ fn generate_circuit_is_valid_cdf() {
         assert_eq!(w_len, witnesses.len());
         assert_eq!(c_len, constraints.len());
 
-        let mut cursor = io::Cursor::new(Vec::new());
-
-        let n = CircuitDescriptionUnit::write_all(
-            &mut cursor,
-            witnesses.clone().into_iter(),
-            constraints.clone().into_iter(),
+        let n = Encoder::init_cursor(
+            preamble.config,
+            witnesses.into_iter(),
+            constraints.into_iter(),
         )
-        .expect("failed to generate valid CDF");
+        .write_all()
+        .expect("failed to serialize circuit");
 
         assert_eq!(
             n,
-            Preamble::LEN + w_len * Witness::len(&preamble) + c_len * Constraint::len(&preamble)
+            Preamble::LEN
+                + w_len * Witness::len(&preamble.config)
+                + c_len * Constraint::len(&preamble.config)
         );
     }
 }

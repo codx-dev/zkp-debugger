@@ -1,7 +1,7 @@
 use std::io;
 use std::ops::{Deref, DerefMut};
 
-use super::{Element, Preamble};
+use crate::{Config, Element, Preamble};
 
 /// Scalar field representation with up to 256 bits.
 ///
@@ -43,27 +43,37 @@ impl DerefMut for Scalar {
 }
 
 impl Element for Scalar {
+    type Config = Config;
+
     fn zeroed() -> Self {
         Self::default()
     }
 
-    fn len(_preamble: &Preamble) -> usize {
-        Self::LEN
+    fn len(config: &Self::Config) -> usize {
+        if config.zeroed_scalar_values {
+            0
+        } else {
+            Self::LEN
+        }
     }
 
-    fn to_buffer(&self, _preamble: &Preamble, buf: &mut [u8]) {
-        let buf = &mut buf[..Self::LEN];
+    fn to_buffer(&self, config: &Self::Config, buf: &mut [u8]) {
+        if !config.zeroed_scalar_values {
+            let buf = &mut buf[..Self::LEN];
 
-        buf.copy_from_slice(&self.scalar);
+            buf.copy_from_slice(&self.scalar);
+        }
     }
 
-    fn try_from_buffer_in_place(&mut self, _preamble: &Preamble, buf: &[u8]) -> io::Result<()> {
-        self.scalar.copy_from_slice(&buf[..Self::LEN]);
+    fn try_from_buffer_in_place(&mut self, config: &Self::Config, buf: &[u8]) -> io::Result<()> {
+        if !config.zeroed_scalar_values {
+            self.scalar.copy_from_slice(&buf[..Self::LEN]);
+        }
 
         Ok(())
     }
 
-    fn validate(&self, _preamble: &Preamble) -> io::Result<()> {
+    fn validate(&self, _config: &Preamble) -> io::Result<()> {
         Ok(())
     }
 }

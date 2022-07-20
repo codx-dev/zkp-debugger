@@ -143,7 +143,7 @@ where
         self.last_constraint = constraint.id() as usize;
         self.is_last_constraint_ok = constraint.is_ok();
         self.finished =
-            self.last_constraint == self.preamble.constraints().saturating_sub(1) as usize;
+            self.last_constraint == self.preamble.constraints.saturating_sub(1) as usize;
         self.constraint.replace(constraint);
 
         Ok(())

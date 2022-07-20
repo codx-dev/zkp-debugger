@@ -62,7 +62,9 @@ fn breakpoint_and_delete_works() {
 fn next_afore_and_goto_works() {
     let w_len = 10;
     let c_len = 20;
-    let preamble = Preamble::new(w_len, c_len);
+    let preamble = *Preamble::new()
+        .with_witnesses(w_len)
+        .with_constraints(c_len);
 
     let cursor = CDFGenerator::new(0x3489, preamble).gen_cursor();
     let mut app = App::default_with_cdf(cursor);
@@ -80,7 +82,9 @@ fn next_afore_and_goto_works() {
 fn continue_and_turn_works() {
     let w_len = 10;
     let c_len = 20;
-    let preamble = Preamble::new(w_len, c_len);
+    let preamble = *Preamble::new()
+        .with_witnesses(w_len)
+        .with_constraints(c_len);
 
     // gen a circuit with all evaluations to true, except the 2nd & 11th
     let mut i = 0;
@@ -119,7 +123,7 @@ fn continue_and_turn_works() {
     app.cont().expect("failed to cont");
     assert_eq!(10, app.last_constraint());
     app.cont().expect("failed to cont");
-    assert_eq!(c_len - 1, app.last_constraint() as u64);
+    assert_eq!(c_len - 1, app.last_constraint());
 
     app.turn().expect("failed to turn");
     assert_eq!(10, app.last_constraint());

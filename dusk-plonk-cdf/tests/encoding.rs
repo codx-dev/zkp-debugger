@@ -1,41 +1,37 @@
-use std::{fmt, iter};
+use std::{fmt, io, iter};
 
 use dusk_plonk_cdf::*;
 use dusk_plonk_debugger_utils::*;
 
-pub fn encode_decode_element<E, I>(mut elements: I)
+pub fn encode_decode_element<C, E, I>(mut elements: I)
 where
-    E: Element + fmt::Debug + PartialEq,
+    C: for<'a> From<&'a Config>,
+    E: Element<Config = C> + fmt::Debug + PartialEq,
     I: Iterator<Item = E>,
 {
-    let preambles = vec![
-        Preamble::new(1, 0),
-        Preamble::new(1, 1),
-        Preamble::new(1, 10),
-        Preamble::new(10, 0),
-        Preamble::new(10, 1),
-        Preamble::new(10, 10),
-        Preamble::new(10, 100),
-    ];
+    // TODO test all config variants
+    let configs = vec![Config::default()];
 
-    for preamble in preambles {
+    for config in configs {
+        let config = C::from(&config);
+
         elements.by_ref().for_each(move |el| {
-            let bytes = el.to_vec(&preamble);
-            let el_p = E::try_from_buffer(&preamble, &bytes).expect("failed to decode");
+            let bytes = el.to_vec(&config);
+            let el_p = E::try_from_buffer(&config, &bytes).expect("failed to decode");
 
             assert_eq!(el_p, el);
 
             let mut op = Some(el);
-            let bytes = op.to_vec(&preamble);
-            let op_p = <Option<E>>::try_from_buffer(&preamble, &bytes).expect("failed to decode");
+            let bytes = op.to_vec(&config);
+            let op_p = <Option<E>>::try_from_buffer(&config, &bytes).expect("failed to decode");
 
             assert_eq!(op_p, op);
             assert_ne!(op_p, None);
 
             let el = op.take();
 
-            let bytes = op.to_vec(&preamble);
-            let op_p = <Option<E>>::try_from_buffer(&preamble, &bytes).expect("failed to decode");
+            let bytes = op.to_vec(&config);
+            let op_p = <Option<E>>::try_from_buffer(&config, &bytes).expect("failed to decode");
 
             assert_eq!(op_p, None);
             assert_ne!(op_p, el);
@@ -101,38 +97,51 @@ fn encode_preamble() {
     struct PreambleElement(Preamble);
 
     impl Element for PreambleElement {
+        type Config = <Preamble as Element>::Config;
+
         fn zeroed() -> Self {
-            Self(Preamble::ZEROED)
+            Self(Default::default())
         }
 
-        fn len(_preamble: &Preamble) -> usize {
-            Preamble::LEN
+        fn len(config: &Self::Config) -> usize {
+            Preamble::len(config)
         }
 
-        fn to_buffer(&self, _preamble: &Preamble, buf: &mut [u8]) {
-            self.0.to_buffer(buf)
+        fn to_buffer(&self, config: &Self::Config, buf: &mut [u8]) {
+            self.0.to_buffer(config, buf)
         }
 
         fn try_from_buffer_in_place(
             &mut self,
-            _preamble: &Preamble,
+            config: &Self::Config,
             buf: &[u8],
-        ) -> std::io::Result<()> {
-            self.0.try_from_buffer_in_place(buf)
+        ) -> io::Result<()> {
+            self.0.try_from_buffer_in_place(config, buf)
         }
 
-        fn validate(&self, _preamble: &Preamble) -> std::io::Result<()> {
-            Ok(())
+        fn validate(&self, preamble: &Preamble) -> io::Result<()> {
+            self.0.validate(preamble)
         }
     }
 
-    encode_decode_element(iter::once(PreambleElement(Preamble::new(1, 0))));
-    encode_decode_element(iter::once(PreambleElement(Preamble::new(u64::MAX, 0))));
-    encode_decode_element(iter::once(PreambleElement(Preamble::new(1, u64::MAX))));
-    encode_decode_element(iter::once(PreambleElement(Preamble::new(
-        u64::MAX,
-        u64::MAX,
-    ))));
+    encode_decode_element(iter::once(PreambleElement(
+        *Preamble::new().with_witnesses(1).with_constraints(0),
+    )));
+    encode_decode_element(iter::once(PreambleElement(
+        *Preamble::new()
+            .with_witnesses(usize::MAX)
+            .with_constraints(0),
+    )));
+    encode_decode_element(iter::once(PreambleElement(
+        *Preamble::new()
+            .with_witnesses(1)
+            .with_constraints(usize::MAX),
+    )));
+    encode_decode_element(iter::once(PreambleElement(
+        *Preamble::new()
+            .with_witnesses(usize::MAX)
+            .with_constraints(usize::MAX),
+    )));
 }
 
 #[test]
@@ -171,7 +180,7 @@ fn encode_indexed_witness() {
 
 #[test]
 fn encode_generated_witnesses() {
-    let preamble = Preamble::new(100, 10);
+    let preamble = *Preamble::new().with_witnesses(100).with_constraints(10);
     let mut generator = CDFGenerator::new(0x8437, preamble);
 
     encode_decode_element((0..100).map(|_| generator.gen_witness()));
@@ -179,7 +188,7 @@ fn encode_generated_witnesses() {
 
 #[test]
 fn encode_generated_constraints() {
-    let preamble = Preamble::new(100, 10);
+    let preamble = *Preamble::new().with_witnesses(100).with_constraints(10);
     let mut generator = CDFGenerator::new(0x8437, preamble);
 
     encode_decode_element((0..100).map(|_| generator.gen_constraint()));

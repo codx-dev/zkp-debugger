@@ -1,6 +1,6 @@
 use std::io;
 
-use super::{Element, Preamble, Scalar};
+use crate::{AtomicConfig, Config, Element, Preamble, Scalar};
 
 /// Representation of an indexed witness.
 ///
@@ -43,24 +43,26 @@ impl IndexedWitness {
 }
 
 impl Element for IndexedWitness {
+    type Config = Config;
+
     fn zeroed() -> Self {
         Self::default()
     }
 
-    fn len(preamble: &Preamble) -> usize {
-        u64::len(preamble) + <Option<u64>>::len(preamble) + Scalar::len(preamble)
+    fn len(config: &Self::Config) -> usize {
+        u64::len(&AtomicConfig) + <Option<u64>>::len(&AtomicConfig) + Scalar::len(config)
     }
 
-    fn to_buffer(&self, preamble: &Preamble, buf: &mut [u8]) {
-        let buf = self.index.encode(preamble, buf);
-        let buf = self.origin.encode(preamble, buf);
-        let _ = self.value.encode(preamble, buf);
+    fn to_buffer(&self, config: &Self::Config, buf: &mut [u8]) {
+        let buf = self.index.encode(&AtomicConfig, buf);
+        let buf = self.origin.encode(&AtomicConfig, buf);
+        let _ = self.value.encode(config, buf);
     }
 
-    fn try_from_buffer_in_place(&mut self, preamble: &Preamble, buf: &[u8]) -> io::Result<()> {
-        let buf = self.index.try_decode_in_place(preamble, buf)?;
-        let buf = self.origin.try_decode_in_place(preamble, buf)?;
-        let _ = self.value.try_decode_in_place(preamble, buf)?;
+    fn try_from_buffer_in_place(&mut self, config: &Self::Config, buf: &[u8]) -> io::Result<()> {
+        let buf = self.index.try_decode_in_place(&AtomicConfig, buf)?;
+        let buf = self.origin.try_decode_in_place(&AtomicConfig, buf)?;
+        let _ = self.value.try_decode_in_place(config, buf)?;
 
         Ok(())
     }
@@ -70,7 +72,7 @@ impl Element for IndexedWitness {
         self.origin.map(|o| o.validate(preamble)).transpose()?;
         self.value.validate(preamble)?;
 
-        if self.index >= preamble.witnesses() {
+        if self.index >= preamble.witnesses as u64 {
             return Err(io::Error::new(
                 io::ErrorKind::Other,
                 "the provided witness index does not correspond to a valid allocated witness",
@@ -78,7 +80,7 @@ impl Element for IndexedWitness {
         }
 
         if let Some(o) = self.origin {
-            if o >= preamble.constraints() {
+            if o >= preamble.constraints as u64 {
                 return Err(io::Error::new(
                     io::ErrorKind::Other,
                     "the provided constraint index does not correspond to a valid gate",

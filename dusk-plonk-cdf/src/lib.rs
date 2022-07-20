@@ -18,8 +18,10 @@
 //! A circuit description format file will contain a preamble with all its witnesses. Provided
 //! this, its witness index will reflect its line on the file, facilitating indexing.
 
+mod config;
 mod constraint;
 mod element;
+mod encoder;
 mod indexed_witness;
 mod polynomial;
 mod preamble;
@@ -28,14 +30,15 @@ mod witness;
 
 pub(crate) mod bytes;
 
-use std::borrow::Borrow;
 use std::fs::{File, OpenOptions};
 use std::io;
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
 
+pub use config::{AtomicConfig, Config};
 pub use constraint::Constraint;
 pub use element::{Element, FixedText, Scalar};
+pub use encoder::Encoder;
 pub use indexed_witness::IndexedWitness;
 pub use polynomial::Polynomial;
 pub use preamble::Preamble;
@@ -77,7 +80,8 @@ where
 {
     /// Create a new circuit description instance.
     pub fn from_reader(mut source: S) -> io::Result<Self> {
-        Preamble::try_from_reader(source.by_ref()).map(|preamble| Self { source, preamble })
+        Preamble::try_from_reader(source.by_ref(), &AtomicConfig)
+            .map(|preamble| Self { source, preamble })
     }
 }
 
@@ -87,7 +91,11 @@ where
 {
     /// Attempt to read an indexed constraint from the source
     pub fn fetch_constraint(&mut self, idx: usize) -> io::Result<Constraint> {
-        if idx >= self.preamble.constraints() as usize {
+        let preamble = &self.preamble;
+        let config = &self.preamble.config;
+        let source = &mut self.source;
+
+        if idx >= preamble.constraints {
             return Err(io::Error::new(
                 io::ErrorKind::Other,
                 "attempt to fetch invalid constraint",
@@ -95,32 +103,36 @@ where
         }
 
         let offset = Preamble::LEN
-            + self.preamble.witnesses() as usize * Witness::len(&self.preamble)
-            + idx * Constraint::len(&self.preamble);
+            + preamble.witnesses * Witness::len(config)
+            + idx * Constraint::len(config);
 
         let offset = io::SeekFrom::Start(offset as u64);
 
-        self.source.seek(offset)?;
+        source.seek(offset)?;
 
-        bytes::try_from_reader(self.source.by_ref(), &self.preamble)
+        Constraint::try_from_reader(source, config)
     }
 
     /// Attempt to read an indexed witness from the source
     pub fn fetch_witness(&mut self, idx: usize) -> io::Result<Witness> {
-        if idx >= self.preamble.witnesses() as usize {
+        let preamble = &self.preamble;
+        let config = &self.preamble.config;
+        let source = &mut self.source;
+
+        if idx >= preamble.witnesses {
             return Err(io::Error::new(
                 io::ErrorKind::Other,
                 "attempt to fetch invalid witness",
             ));
         }
 
-        let offset = Preamble::LEN + idx * Witness::len(&self.preamble);
+        let offset = Preamble::LEN + idx * Witness::len(config);
 
         let offset = io::SeekFrom::Start(offset as u64);
 
-        self.source.seek(offset)?;
+        source.seek(offset)?;
 
-        bytes::try_from_reader(self.source.by_ref(), &self.preamble)
+        Witness::try_from_reader(source, config)
     }
 }
 
@@ -131,125 +143,13 @@ impl<S> CircuitDescription<S> {
     }
 
     /// CDF file metadata
+    pub const fn config(&self) -> &Config {
+        &self.preamble.config
+    }
+
+    /// CDF preamble metadata
     pub const fn preamble(&self) -> &Preamble {
         &self.preamble
-    }
-
-    /// Assert the iterator pair is a valid CDF representation.
-    ///
-    /// The check will reallocate all items of the iterator.
-    pub fn into_valid_cdf<W, C>(
-        witnesses: W,
-        constraints: C,
-    ) -> io::Result<(
-        Preamble,
-        impl Iterator<Item = Witness>,
-        impl Iterator<Item = Constraint>,
-    )>
-    where
-        W: Iterator<Item = Witness>,
-        C: Iterator<Item = Constraint>,
-    {
-        let mut witnesses: Vec<Witness> = witnesses.collect();
-        let mut constraints: Vec<Constraint> = constraints.collect();
-
-        witnesses.sort_by_key(|w| w.id());
-        constraints.sort_by_key(|c| c.id());
-
-        if let Some(w) = witnesses.first() {
-            if w.id() != 0 {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "the witnesses set doesn't begin with an index 0",
-                ));
-            }
-        }
-
-        if let Some(c) = constraints.first() {
-            if c.id() != 0 {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "the constraints set doesn't begin with an index 0",
-                ));
-            }
-        }
-
-        let preamble = Preamble::new(witnesses.len() as u64, constraints.len() as u64);
-
-        witnesses.iter().try_for_each(|w| w.validate(&preamble))?;
-        constraints.iter().try_for_each(|c| c.validate(&preamble))?;
-
-        witnesses.as_slice().windows(2).try_for_each(|w| {
-            let a = w[0].id();
-            let b = w[1].id();
-
-            (a.saturating_add(1) == b).then_some(()).ok_or_else(|| {
-                io::Error::new(
-                    io::ErrorKind::Other,
-                    "the provided witnesses does not compute to an ordered dense unique indexed set"
-                )
-            })
-        })?;
-
-        constraints.as_slice().windows(2).try_for_each(|c| {
-            let a = c[0].id();
-            let b = c[1].id();
-
-            (a.saturating_add(1) == b).then_some(())
-                .ok_or_else(|| io::Error::new(
-                    io::ErrorKind::Other,
-                    "the provided constraints does not compute to an ordered dense unique indexed set"
-                ))
-        })?;
-
-        let witnesses = witnesses.into_iter();
-        let constraints = constraints.into_iter();
-
-        Ok((preamble, witnesses, constraints))
-    }
-
-    /// Write all items of the provided iterator without checking the consistency of the file.
-    ///
-    /// The iterator is expected to comply with the rules asserted in [`Self::into_valid_cdf`].
-    pub fn write_all_unchecked<W, BW, BC, IW, IC>(
-        mut writer: W,
-        preamble: Preamble,
-        witnesses: IW,
-        constraints: IC,
-    ) -> io::Result<usize>
-    where
-        W: io::Write,
-        BW: Borrow<Witness>,
-        BC: Borrow<Constraint>,
-        IW: Iterator<Item = BW>,
-        IC: Iterator<Item = BC>,
-    {
-        let n = preamble.try_to_writer(writer.by_ref())?;
-
-        let n = witnesses
-            .map(|w| bytes::try_to_writer(writer.by_ref(), &preamble, w))
-            .try_fold::<_, _, io::Result<usize>>(n, |n, x| Ok(n + x?))?;
-
-        let n = constraints
-            .map(|c| bytes::try_to_writer(writer.by_ref(), &preamble, c))
-            .try_fold::<_, _, io::Result<usize>>(n, |n, x| Ok(n + x?))?;
-
-        Ok(n)
-    }
-
-    /// Write all items of the provided iterator, asserting CDF consistency via
-    /// [`Self::into_valid_cdf`]
-    pub fn write_all<W, IW, IC>(writer: W, witnesses: IW, constraints: IC) -> io::Result<usize>
-    where
-        W: io::Write,
-        IW: Iterator<Item = Witness>,
-        IC: Iterator<Item = Constraint>,
-    {
-        Self::into_valid_cdf(witnesses, constraints).and_then(
-            |(preamble, witnesses, constraints)| {
-                Self::write_all_unchecked(writer, preamble, witnesses, constraints)
-            },
-        )
     }
 }
 

@@ -1,4 +1,4 @@
-use std::{io, iter};
+use std::iter;
 
 use dusk_plonk_cdf::*;
 use dusk_plonk_debugger_utils::*;
@@ -7,10 +7,10 @@ use rand::prelude::*;
 #[test]
 fn shuffled_circuit_is_sound_after_validation() {
     let preambles = vec![
-        Preamble::new(1, 0),
-        Preamble::new(1, 1),
-        Preamble::new(1, 10),
-        Preamble::new(100, 1000),
+        *Preamble::new().with_witnesses(1).with_constraints(0),
+        *Preamble::new().with_witnesses(1).with_constraints(1),
+        *Preamble::new().with_witnesses(1).with_constraints(10),
+        *Preamble::new().with_witnesses(100).with_constraints(1000),
     ];
 
     for preamble in preambles {
@@ -31,36 +31,47 @@ fn shuffled_circuit_is_sound_after_validation() {
             assert_ne!(constraints, shuffled_c);
         }
 
-        let (p, w, c) =
-            CircuitDescriptionUnit::into_valid_cdf(shuffled_w.into_iter(), shuffled_c.into_iter())
-                .expect("failed to validate circuit");
+        let config = Config::default();
+        let mut encoder =
+            Encoder::init_cursor(config, shuffled_w.into_iter(), shuffled_c.into_iter());
 
-        let w: Vec<Witness> = w.collect();
-        let c: Vec<Constraint> = c.collect();
+        encoder
+            .write_all()
+            .expect("encoder failed to receive shuffled input");
 
-        w.iter()
-            .enumerate()
-            .for_each(|(i, w)| assert_eq!(i as u64, w.id()));
+        let mut cursor = encoder.into_inner();
+        cursor.set_position(0);
+        let mut cdf = CircuitDescription::from_reader(cursor).expect("failed to open cdf");
 
-        c.iter()
-            .enumerate()
-            .for_each(|(i, c)| assert_eq!(i as u64, c.id()));
+        witnesses.iter().for_each(|w| {
+            let id = w.id();
+            let w_p = cdf
+                .fetch_witness(id as usize)
+                .expect("failed to fetch witnesss");
 
-        assert_eq!(preamble, p);
-        assert_eq!(witnesses, w);
-        assert_eq!(constraints, c);
+            assert_eq!(w, &w_p);
+        });
+
+        constraints.iter().for_each(|c| {
+            let id = c.id();
+            let c_p = cdf
+                .fetch_constraint(id as usize)
+                .expect("failed to fetch constraint");
+
+            assert_eq!(c, &c_p);
+        });
     }
 }
 
 #[test]
 #[should_panic]
 fn witness_count_cant_be_zero() {
-    Preamble::new(0, 100);
+    Preamble::new().with_witnesses(0).with_constraints(100);
 }
 
 #[test]
 fn single_witness_circuit_is_valid() {
-    let preamble = Preamble::new(1, 0);
+    let preamble = *Preamble::new().with_witnesses(1).with_constraints(0);
     let mut generator = CDFGenerator::new(0x384, preamble);
 
     let id = 0;
@@ -69,16 +80,28 @@ fn single_witness_circuit_is_valid() {
 
     let witness = Witness::new(id, value, source);
 
-    let (p, _, _) = CircuitDescriptionUnit::into_valid_cdf(iter::once(witness), iter::empty())
-        .expect("failed to validate circuit");
+    let config = Config::default();
+    let mut encoder =
+        Encoder::init_cursor(config, iter::once(witness), iter::empty::<Constraint>());
 
-    assert_eq!(p.witnesses(), 1);
-    assert_eq!(p.constraints(), 0);
+    encoder
+        .write_all()
+        .expect("encoder failed to receive shuffled input");
+
+    let mut cursor = encoder.into_inner();
+
+    cursor.set_position(0);
+
+    let cdf = CircuitDescription::from_reader(cursor).expect("failed to open cdf");
+    let preamble = cdf.preamble();
+
+    assert_eq!(preamble.witnesses, 1);
+    assert_eq!(preamble.constraints, 0);
 }
 
 #[test]
 fn witness_must_start_at_zero() {
-    let preamble = Preamble::new(1, 0);
+    let preamble = *Preamble::new().with_witnesses(1).with_constraints(0);
     let mut generator = CDFGenerator::new(0x384, preamble);
 
     let id = 1;
@@ -87,14 +110,16 @@ fn witness_must_start_at_zero() {
 
     let witness = Witness::new(id, value, source);
 
-    let result = CircuitDescriptionUnit::into_valid_cdf(iter::once(witness), iter::empty());
+    let config = Config::default();
 
-    assert!(result.is_err());
+    Encoder::init_cursor(config, iter::once(witness), iter::empty::<Constraint>())
+        .write_all()
+        .expect_err("invalid first witness shouldn't encode");
 }
 
 #[test]
 fn constraint_must_start_at_zero() {
-    let preamble = Preamble::new(1, 1);
+    let preamble = *Preamble::new().with_witnesses(1).with_constraints(1);
     let mut generator = CDFGenerator::new(0x384, preamble);
 
     let (witnesses, constraints) = generator.gen_structurally_sound_circuit();
@@ -107,47 +132,48 @@ fn constraint_must_start_at_zero() {
 
     let constraint = Constraint::new(id, polynomial, source);
 
+    let config = Config::default();
+
     // Sanity check
-    let (p, _, _) = CircuitDescriptionUnit::into_valid_cdf(
+    Encoder::init_cursor(
+        config,
         iter::once(witness.clone()),
         iter::once(constraint.clone()),
     )
+    .write_all()
     .expect("failed to validate circuit");
-
-    assert_eq!(preamble, p);
 
     let id = 1;
     let source = generator.gen_source();
 
     let constraint = Constraint::new(id, polynomial, source);
 
-    let result =
-        CircuitDescriptionUnit::into_valid_cdf(iter::once(witness), iter::once(constraint));
-
-    assert!(result.is_err());
+    Encoder::init_cursor(config, iter::once(witness), iter::once(constraint))
+        .write_all()
+        .expect_err("invalid first witness shouldn't encode");
 }
 
 #[test]
 fn circuit_data_seek_works_for_witness_and_constraints() {
+    let config = Config::default();
     let preambles = vec![
-        Preamble::new(1, 0),
-        Preamble::new(1, 10),
-        Preamble::new(10, 0),
-        Preamble::new(10, 100),
+        *Preamble::new().with_witnesses(1).with_constraints(0),
+        *Preamble::new().with_witnesses(1).with_constraints(10),
+        *Preamble::new().with_witnesses(10).with_constraints(0),
+        *Preamble::new().with_witnesses(10).with_constraints(100),
     ];
 
     for preamble in preambles {
         let mut generator = CDFGenerator::new(0x384, preamble);
         let (witnesses, constraints) = generator.gen_structurally_sound_circuit();
 
-        let mut cursor = io::Cursor::new(Vec::new());
+        let mut encoder = Encoder::init_cursor(config, witnesses.iter(), constraints.iter());
 
-        CircuitDescriptionUnit::write_all(
-            &mut cursor,
-            witnesses.clone().into_iter(),
-            constraints.clone().into_iter(),
-        )
-        .expect("failed to serialize circuit");
+        encoder
+            .write_all()
+            .expect("encoder failed to receive shuffled input");
+
+        let mut cursor = encoder.into_inner();
 
         // Reset the cursor to open the circuit
         cursor.set_position(0);
