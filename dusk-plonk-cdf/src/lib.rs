@@ -35,7 +35,7 @@ use std::io;
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
 
-pub use config::{Config, AtomicConfig};
+pub use config::{AtomicConfig, Config};
 pub use constraint::Constraint;
 pub use element::{Element, FixedText, Scalar};
 pub use encoder::Encoder;
@@ -80,7 +80,8 @@ where
 {
     /// Create a new circuit description instance.
     pub fn from_reader(mut source: S) -> io::Result<Self> {
-        Preamble::try_from_reader(source.by_ref(), &AtomicConfig).map(|preamble| Self { source, preamble })
+        Preamble::try_from_reader(source.by_ref(), &AtomicConfig)
+            .map(|preamble| Self { source, preamble })
     }
 }
 

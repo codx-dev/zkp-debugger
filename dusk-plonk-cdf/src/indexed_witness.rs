@@ -1,6 +1,6 @@
 use std::io;
 
-use crate::{Config, Element, Preamble, Scalar, AtomicConfig};
+use crate::{AtomicConfig, Config, Element, Preamble, Scalar};
 
 /// Representation of an indexed witness.
 ///

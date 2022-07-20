@@ -1,7 +1,7 @@
 use std::ops::Deref;
 use std::{fmt, io, mem};
 
-use crate::{bytes, Config, Element, Preamble, AtomicConfig};
+use crate::{bytes, AtomicConfig, Config, Element, Preamble};
 
 /// Text representation with fixed `N` bytes.
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

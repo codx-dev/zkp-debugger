@@ -3,7 +3,7 @@ use std::fs::{File, OpenOptions};
 use std::io::{self, Seek, Write};
 use std::path::Path;
 
-use crate::{Config, Constraint, Preamble, Witness, Element, AtomicConfig};
+use crate::{AtomicConfig, Config, Constraint, Element, Preamble, Witness};
 
 /// An encoder for CDF format
 #[derive(Debug)]

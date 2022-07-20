@@ -4,7 +4,7 @@ mod scalar;
 
 use std::io;
 
-use crate::Preamble;
+use crate::{Config, Preamble};
 
 pub use fixed_text::FixedText;
 pub use scalar::Scalar;
@@ -12,7 +12,7 @@ pub use scalar::Scalar;
 /// Describe a CDF element
 pub trait Element: Sized {
     /// Configuration for the serialization and deserialization
-    type Config;
+    type Config: for<'a> From<&'a Config>;
 
     /// A zeroed/default instance of the type.
     fn zeroed() -> Self;

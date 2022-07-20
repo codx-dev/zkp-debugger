@@ -1,6 +1,6 @@
 use std::io;
 
-use crate::{Config, Element, Preamble, Scalar, Source, AtomicConfig};
+use crate::{AtomicConfig, Config, Element, Preamble, Scalar, Source};
 
 /// Witness allocation representation
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

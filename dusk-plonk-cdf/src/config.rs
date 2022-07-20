@@ -6,6 +6,18 @@ use crate::{Element, Preamble};
 /// Empty config set for atomic serialization that is not parametrizable
 pub struct AtomicConfig;
 
+impl From<&Config> for AtomicConfig {
+    fn from(_config: &Config) -> Self {
+        AtomicConfig
+    }
+}
+
+impl From<&Config> for Config {
+    fn from(config: &Config) -> Self {
+        *config
+    }
+}
+
 /// Configuration parameters for encoding and decoding
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Config {
@@ -56,7 +68,9 @@ impl Element for Config {
     }
 
     fn try_from_buffer_in_place(&mut self, _config: &Self::Config, buf: &[u8]) -> io::Result<()> {
-        let _ = self.zeroed_scalar_values.try_decode_in_place(&AtomicConfig, buf)?;
+        let _ = self
+            .zeroed_scalar_values
+            .try_decode_in_place(&AtomicConfig, buf)?;
 
         Ok(())
     }

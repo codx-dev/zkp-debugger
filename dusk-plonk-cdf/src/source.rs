@@ -2,7 +2,7 @@ use std::fs::{File, OpenOptions};
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::{Config, Element, FixedText, Preamble, AtomicConfig};
+use crate::{AtomicConfig, Config, Element, FixedText, Preamble};
 
 /// Source file representation for debug mapping, including line and column of a file
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

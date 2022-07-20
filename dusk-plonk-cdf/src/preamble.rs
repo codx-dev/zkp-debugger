@@ -1,7 +1,7 @@
 use core::mem;
 use std::io;
 
-use crate::{Config, Constraint, Witness, AtomicConfig, Element};
+use crate::{AtomicConfig, Config, Constraint, Element, Witness};
 
 /// Metadata information of the CDF file
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -107,7 +107,10 @@ impl Element for Preamble {
 
     fn validate(&self, _preamble: &Preamble) -> io::Result<()> {
         if self.witnesses == 0 {
-            return Err(io::Error::new(io::ErrorKind::Other, "witness count can't be zero in PLONK protocol"));
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "witness count can't be zero in PLONK protocol",
+            ));
         }
 
         Ok(())

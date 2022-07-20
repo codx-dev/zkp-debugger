@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use std::{io, mem};
 
-use crate::{bytes, Config, Element, Preamble, AtomicConfig};
+use crate::{bytes, AtomicConfig, Config, Element, Preamble};
 
 impl Element for bool {
     type Config = AtomicConfig;
@@ -46,7 +46,11 @@ macro_rules! impl_num {
                 bytes::encode_bytes(&self.to_le_bytes(), buf);
             }
 
-            fn try_from_buffer_in_place(&mut self, _config: &Self::Config, buf: &[u8]) -> io::Result<()> {
+            fn try_from_buffer_in_place(
+                &mut self,
+                _config: &Self::Config,
+                buf: &[u8],
+            ) -> io::Result<()> {
                 const LEN: usize = mem::size_of::<$t>();
 
                 let mut slf = [0u8; LEN];
@@ -69,11 +73,12 @@ impl_num!(u16);
 impl_num!(u64);
 impl_num!(usize);
 
-impl<T> Element for Option<T>
+impl<C, T> Element for Option<T>
 where
-    T: Element<Config = AtomicConfig>,
+    C: for<'a> From<&'a Config>,
+    T: Element<Config = C>,
 {
-    type Config = AtomicConfig;
+    type Config = C;
 
     fn zeroed() -> Self {
         None
@@ -125,7 +130,7 @@ where
 }
 
 impl Element for () {
-    type Config = Config;
+    type Config = AtomicConfig;
 
     fn zeroed() -> Self {}
 
@@ -145,7 +150,7 @@ impl Element for () {
 }
 
 impl<T> Element for PhantomData<T> {
-    type Config = Config;
+    type Config = AtomicConfig;
 
     fn zeroed() -> Self {
         PhantomData

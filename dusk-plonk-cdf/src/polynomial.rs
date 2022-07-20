@@ -1,6 +1,6 @@
 use std::io;
 
-use crate::{Config, Element, IndexedWitness, Preamble, Scalar, AtomicConfig};
+use crate::{AtomicConfig, Config, Element, IndexedWitness, Preamble, Scalar};
 
 /// PLONK polynomial expression representation with its selectors and witnesses.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]

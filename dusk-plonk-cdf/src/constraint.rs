@@ -1,6 +1,6 @@
 use std::io;
 
-use crate::{Config, Element, Polynomial, Preamble, Scalar, Source, AtomicConfig};
+use crate::{AtomicConfig, Config, Element, Polynomial, Preamble, Scalar, Source};
 
 /// Constraint gate of a circuit
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
@@ -49,7 +49,10 @@ impl Element for Constraint {
     }
 
     fn len(config: &Self::Config) -> usize {
-        u64::len(&AtomicConfig) + Scalar::len(config) + Polynomial::len(config) + Source::len(config)
+        u64::len(&AtomicConfig)
+            + Scalar::len(config)
+            + Polynomial::len(config)
+            + Source::len(config)
     }
 
     fn to_buffer(&self, config: &Self::Config, buf: &mut [u8]) {
