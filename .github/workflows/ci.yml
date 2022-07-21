@@ -21,40 +21,44 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-#      - uses: actions-rs/toolchain@v1
-#        with:
-#          profile: minimal
-#          toolchain: ${{ matrix.rust }}
-#          override: true
-#          components: rustfmt, clippy
-#
-#      - uses: actions-rs/cargo@v1
-#        with:
-#          command: fmt
-#          args: --all -- --check
-#
-#      - uses: actions-rs/cargo@v1
-#        with:
-#          command: clippy
-#          args: -- -D warnings
-#
-#      - uses: actions-rs/cargo@v1
-#        with:
-#          command: test
-#
-#      - uses: actions-rs/cargo@v1
-#        with:
-#          command: test
-#          args: --no-default-features
-#
-#      - uses: actions-rs/cargo@v1
-#        with:
-#          command: test
-#          args: --all-features
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+          components: rustfmt, clippy
 
-  tests-multi:
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -- -D warnings
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --no-default-features
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features
+
+  # this is duplicated, but the github runners take FAR longer to run
+  # actions with multi-os inside the same matrix
+  #
+  # also, it takes too long to run `latest` images for macos and win.
+  tests-win:
     needs: tests
-    runs-on: [windows-2022, macos-12]
+    runs-on: [windows-2022]
     strategy:
       matrix:
         rust:
@@ -74,46 +78,68 @@ jobs:
           command: test
           args: --all-features
 
-#  coverage:
-#    needs: tests
-#    runs-on: ubuntu-latest
-#    strategy:
-#      matrix:
-#        rust:
-#          - nightly
-#
-#    steps:
-#      - uses: actions/checkout@v2
-#
-#      - uses: actions-rs/toolchain@v1
-#        with:
-#          profile: minimal
-#          toolchain: ${{ matrix.rust }}
-#          override: true
-#          components: llvm-tools-preview
-#
-#      - uses: actions-rs/cargo@v1
-#        with:
-#          command: clean
-#
-#      - uses: actions-rs/cargo@v1
-#        with:
-#          command: test
-#          args: --all-features
-#        env:
-#          CARGO_INCREMENTAL: '0'
-#          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort'
-#          RUSTDOCFLAGS: '-Cpanic=abort'
-#
-#      - id: coverage
-#        uses: actions-rs/grcov@v0.1
-#        with:
-#          branch: true
-#          llvm: true
-#          filter: covered
-#          ignore: "*/src/bin/**/*"
-#
-#      - uses: codecov/codecov-action@v3
-#        with:
-#          token: ${{ secrets.CODECOV_TOKEN }}
-#          files: ${{ steps.coverage.outputs.report }}
+  tests-osx:
+    needs: tests
+    runs-on: [macos-12]
+    strategy:
+      matrix:
+        rust:
+          - nightly
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features
+
+  coverage:
+    needs: tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - nightly
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+          components: llvm-tools-preview
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clean
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features
+        env:
+          CARGO_INCREMENTAL: '0'
+          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort'
+          RUSTDOCFLAGS: '-Cpanic=abort'
+
+      - id: coverage
+        uses: actions-rs/grcov@v0.1
+        with:
+          branch: true
+          llvm: true
+          filter: covered
+          ignore: "*/src/bin/**/*"
+
+      - uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ steps.coverage.outputs.report }}
