@@ -93,7 +93,6 @@ jobs:
           llvm: true
           filter: covered
           ignore: "*/src/bin/**/*"
-          ignore: "*/src/main.rs"
 
       - uses: codecov/codecov-action@v3
         with:
