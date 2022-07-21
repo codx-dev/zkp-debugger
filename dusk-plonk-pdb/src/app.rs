@@ -74,6 +74,7 @@ impl App<File> {
         CircuitDescriptionFile::open_read(path)
             .and_then(|cdf| self.set_cdf(cdf))
             .and_then(|_| self.restart())
+            .and_then(|_| self.render())
     }
 
     /// Attempt to execute a given command
