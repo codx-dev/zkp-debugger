@@ -12,7 +12,7 @@ env:
 
 jobs:
   tests:
-    runs-on: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: [ubuntu-latest]
     strategy:
       matrix:
         rust:
@@ -26,7 +26,7 @@ jobs:
           profile: minimal
           toolchain: ${{ matrix.rust }}
           override: true
-          components: rustfmt, clippy, llvm-tools-preview
+          components: rustfmt, clippy
 
       - uses: actions-rs/cargo@v1
         with:
@@ -46,6 +46,28 @@ jobs:
         with:
           command: test
           args: --no-default-features
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features
+
+  tests-multi:
+    needs: tests
+    runs-on: [windows-latest, macos-latest]
+    strategy:
+      matrix:
+        rust:
+          - nightly
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
 
       - uses: actions-rs/cargo@v1
         with:
