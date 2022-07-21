@@ -115,9 +115,12 @@ fn try_from_binary_open_works() {
     use std::path::PathBuf;
 
     let manifest = env!("CARGO_MANIFEST_DIR");
-    let cargo = PathBuf::from(manifest).join("Cargo.toml");
-    let cargo_str = cargo.to_str().expect("failed to fetch str from path");
+    let cargo = PathBuf::from(manifest)
+        .join("Cargo.toml")
+        .canonicalize()
+        .expect("failed to canonicalize cargo path");
 
+    let cargo_str = cargo.to_str().expect("failed to fetch str from path");
     let command = Command::try_from_binary(&Instruction::Open, cargo_str)
         .expect("failed to create open command");
 

@@ -11,8 +11,8 @@ env:
   RUSTFLAGS: -D warnings
 
 jobs:
-  ci:
-    runs-on: ubuntu-latest
+  tests:
+    runs-on: [ubuntu-latest]
     strategy:
       matrix:
         rust:
@@ -26,7 +26,7 @@ jobs:
           profile: minimal
           toolchain: ${{ matrix.rust }}
           override: true
-          components: rustfmt, clippy, llvm-tools-preview
+          components: rustfmt, clippy
 
       - uses: actions-rs/cargo@v1
         with:
@@ -51,6 +51,72 @@ jobs:
         with:
           command: test
           args: --all-features
+
+  # this is duplicated, but the github runners take FAR longer to run
+  # actions with multi-os inside the same matrix
+  #
+  # also, it takes too long to run `latest` images for macos and win.
+  tests-win:
+    needs: tests
+    runs-on: [windows-2022]
+    strategy:
+      matrix:
+        rust:
+          - nightly
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features
+
+  tests-osx:
+    needs: tests
+    runs-on: [macos-12]
+    strategy:
+      matrix:
+        rust:
+          - nightly
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features
+
+  coverage:
+    needs: tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - nightly
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+          components: llvm-tools-preview
 
       - uses: actions-rs/cargo@v1
         with:
