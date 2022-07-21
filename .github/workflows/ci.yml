@@ -134,10 +134,7 @@ jobs:
       - id: coverage
         uses: actions-rs/grcov@v0.1
         with:
-          branch: true
-          llvm: true
-          filter: covered
-          ignore: "*/src/bin/**/*"
+          config: configs/grcov.yml
 
       - uses: codecov/codecov-action@v3
         with:
