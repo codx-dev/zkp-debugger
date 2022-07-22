@@ -71,6 +71,8 @@ impl Element for Scalar {
         _context: &mut Context<S>,
         buf: &[u8],
     ) -> io::Result<()> {
+        Self::validate_buffer_len(config, buf.len())?;
+
         if !config.zeroed_scalar_values {
             self.scalar.copy_from_slice(&buf[..Self::LEN]);
         }

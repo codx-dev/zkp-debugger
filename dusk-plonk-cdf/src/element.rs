@@ -28,12 +28,10 @@ pub trait Element: Sized {
 
     /// Write the type into the buffer.
     ///
-    /// The buffer is guaranteed, provided a correct definition of [`Element::len`], to contain
-    /// enough bytes to fully serialize the type - so length checks aren't required. Hence, this
-    /// function is infallible.
+    /// # Panics
     ///
-    /// This will enforce the implementors to be designed to not hold stateful serialization,
-    /// allowing greater flexibility of usage.
+    /// The buffer must, provided a correct definition of [`Element::len`], contain enough bytes to
+    /// fully serialize the type. This can be checkedvia [`Element::validate_buffer_len`].
     fn to_buffer(&self, config: &Self::Config, context: &mut ContextUnit, buf: &mut [u8]);
 
     /// Deserialize the type from a given buffer
@@ -51,6 +49,18 @@ pub trait Element: Sized {
 
     /// Perform the internal validations of the associated element
     fn validate(&self, preamble: &Preamble) -> io::Result<()>;
+
+    /// Assert the buffer is big enough to store the type
+    fn validate_buffer_len(config: &Self::Config, len: usize) -> io::Result<()> {
+        if len < Self::len(config) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "the provided buffer isn't big enough",
+            ));
+        }
+
+        Ok(())
+    }
 
     /// Serialize the object into a bytes array.
     fn to_vec(&self, config: &Self::Config, context: &mut ContextUnit) -> Vec<u8> {

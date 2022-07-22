@@ -61,13 +61,15 @@ impl<const N: u16> Element for FixedText<N> {
 
     fn try_from_buffer_in_place<S>(
         &mut self,
-        _config: &Self::Config,
+        config: &Self::Config,
         context: &mut Context<S>,
         buf: &[u8],
     ) -> io::Result<()>
     where
         S: io::Read + io::Seek,
     {
+        Self::validate_buffer_len(config, buf.len())?;
+
         let (len, buf) = u16::try_decode(&AtomicConfig, context, buf)?;
 
         self.0 = String::from_utf8(buf[..len as usize].to_vec())

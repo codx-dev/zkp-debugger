@@ -121,6 +121,8 @@ impl Element for Polynomial {
     where
         S: io::Read + io::Seek,
     {
+        Self::validate_buffer_len(config, buf.len())?;
+
         let buf = self.qm.try_decode_in_place(config, context, buf)?;
         let buf = self.ql.try_decode_in_place(config, context, buf)?;
         let buf = self.qr.try_decode_in_place(config, context, buf)?;

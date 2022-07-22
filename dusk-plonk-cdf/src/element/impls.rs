@@ -20,10 +20,12 @@ impl Element for bool {
 
     fn try_from_buffer_in_place<S>(
         &mut self,
-        _config: &Self::Config,
+        config: &Self::Config,
         _context: &mut Context<S>,
         buf: &[u8],
     ) -> io::Result<()> {
+        Self::validate_buffer_len(config, buf.len())?;
+
         *self = buf[0] != 0;
 
         Ok(())
@@ -58,10 +60,12 @@ macro_rules! impl_num {
 
             fn try_from_buffer_in_place<S>(
                 &mut self,
-                _config: &Self::Config,
+                config: &Self::Config,
                 _context: &mut Context<S>,
                 buf: &[u8],
             ) -> io::Result<()> {
+                Self::validate_buffer_len(config, buf.len())?;
+
                 const LEN: usize = mem::size_of::<$t>();
 
                 let mut slf = [0u8; LEN];
@@ -101,10 +105,12 @@ impl Element for usize {
 
     fn try_from_buffer_in_place<S>(
         &mut self,
-        _config: &Self::Config,
+        config: &Self::Config,
         _context: &mut Context<S>,
         buf: &[u8],
     ) -> io::Result<()> {
+        Self::validate_buffer_len(config, buf.len())?;
+
         const LEN: usize = mem::size_of::<u64>();
 
         let mut slf = [0u8; LEN];
@@ -156,6 +162,8 @@ where
     where
         S: io::Read + io::Seek,
     {
+        Self::validate_buffer_len(config, buf.len())?;
+
         let (is_some, buf) = bool::try_decode(&AtomicConfig, context, buf)?;
 
         match self {

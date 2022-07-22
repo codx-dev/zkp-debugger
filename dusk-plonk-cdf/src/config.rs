@@ -77,13 +77,15 @@ impl Element for Config {
 
     fn try_from_buffer_in_place<S>(
         &mut self,
-        _config: &Self::Config,
+        config: &Self::Config,
         context: &mut Context<S>,
         buf: &[u8],
     ) -> io::Result<()>
     where
         S: io::Read + io::Seek,
     {
+        Self::validate_buffer_len(config, buf.len())?;
+
         let _ = self
             .zeroed_scalar_values
             .try_decode_in_place(&AtomicConfig, context, buf)?;
@@ -114,6 +116,11 @@ fn builder_functions_works() {
 #[test]
 fn zeroed_works() {
     assert_eq!(Config::zeroed(), Config::DEFAULT)
+}
+
+#[test]
+fn atomic_config_has_default() {
+    AtomicConfig::default();
 }
 
 #[test]

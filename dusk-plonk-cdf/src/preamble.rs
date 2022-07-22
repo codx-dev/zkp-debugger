@@ -96,13 +96,15 @@ impl Element for Preamble {
 
     fn try_from_buffer_in_place<S>(
         &mut self,
-        _config: &Self::Config,
+        config: &Self::Config,
         context: &mut Context<S>,
         buf: &[u8],
     ) -> io::Result<()>
     where
         S: io::Read + io::Seek,
     {
+        Self::validate_buffer_len(config, buf.len())?;
+
         let buf = self
             .witnesses
             .try_decode_in_place(&AtomicConfig, context, buf)?;

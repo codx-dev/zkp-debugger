@@ -68,6 +68,8 @@ impl Element for IndexedWitness {
     where
         S: io::Read + io::Seek,
     {
+        Self::validate_buffer_len(config, buf.len())?;
+
         let buf = self
             .index
             .try_decode_in_place(&AtomicConfig, context, buf)?;

@@ -1,3 +1,4 @@
+use std::marker::PhantomData;
 use std::{fmt, io, iter};
 
 use dusk_plonk_cdf::*;
@@ -20,6 +21,12 @@ where
             let ctx_encode = &mut Context::unit();
 
             let bytes = el.to_vec(&config, ctx_encode.with_source_cache_id(0));
+
+            if !bytes.is_empty() {
+                E::try_from_buffer(&config, &mut ctx, &[])
+                    .expect_err("decode from empty buffer shouldn't panic");
+            }
+
             let el_p = E::try_from_buffer(&config, &mut ctx, &bytes).expect("failed to decode");
 
             assert_eq!(el_p, el);
@@ -49,6 +56,23 @@ fn encode_language_primitives() {
     let preamble = *Preamble::new().with_witnesses(1).with_constraints(0);
     let mut generator = CDFGenerator::new(0x384, preamble);
     let mut cdf = generator.gen_cdf();
+
+    encode_decode_element(
+        vec![
+            *Preamble::new().with_witnesses(1).with_constraints(0),
+            *Preamble::new().with_witnesses(1).with_constraints(1),
+            *Preamble::new().with_witnesses(1).with_constraints(10),
+            *Preamble::new().with_witnesses(10).with_constraints(0),
+            *Preamble::new().with_witnesses(10).with_constraints(1),
+            *Preamble::new().with_witnesses(10).with_constraints(10),
+        ]
+        .into_iter(),
+        cdf.context(),
+    );
+
+    let phantom: PhantomData<u64> = PhantomData;
+    encode_decode_element(iter::once(phantom), cdf.context());
+    encode_decode_element(iter::once(()), cdf.context());
 
     encode_decode_element(iter::once(true).chain(iter::once(false)), cdf.context());
     encode_decode_element(
@@ -183,6 +207,10 @@ fn encode_preamble() {
         }
     }
 
+    PreambleElement(Default::default())
+        .validate(&Default::default())
+        .expect("default preamble should validate");
+
     let preamble = *Preamble::new().with_witnesses(1).with_constraints(0);
     let mut generator = CDFGenerator::new(0x384, preamble);
     let mut cdf = generator.gen_cdf();
@@ -265,6 +293,15 @@ fn encode_indexed_witness() {
         )),
         cdf.context(),
     );
+}
+
+#[test]
+fn encode_polynomial() {
+    let preamble = *Preamble::new().with_witnesses(1).with_constraints(0);
+    let mut generator = CDFGenerator::new(0x384, preamble);
+    let mut cdf = generator.gen_cdf();
+
+    encode_decode_element((0..100).map(|_| generator.gen_polynomial()), cdf.context());
 }
 
 #[test]

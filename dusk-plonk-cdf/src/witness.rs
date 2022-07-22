@@ -58,6 +58,8 @@ impl Element for Witness {
     where
         S: io::Read + io::Seek,
     {
+        Self::validate_buffer_len(config, buf.len())?;
+
         let buf = self.id.try_decode_in_place(&AtomicConfig, context, buf)?;
         let buf = self.value.try_decode_in_place(config, context, buf)?;
         let _ = self.source.try_decode_in_place(config, context, buf)?;

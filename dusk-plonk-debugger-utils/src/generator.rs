@@ -160,14 +160,6 @@ impl CDFGenerator {
         Source::new(line, col, path)
     }
 
-    pub fn gen_constraint(&mut self) -> Constraint {
-        let id = self.gen();
-        let polynomial = self.gen_polynomial();
-        let source = self.gen_source();
-
-        Constraint::new(id, polynomial, source)
-    }
-
     pub fn gen_witness(&mut self) -> Witness {
         let id = self.gen();
         let value = self.gen_scalar();
@@ -243,6 +235,20 @@ impl RngCore for CDFGenerator {
     fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
         self.rng.try_fill_bytes(dest)
     }
+}
+
+#[test]
+fn generator_is_rng() {
+    let mut generator = CDFGenerator::new(
+        0x348,
+        *Preamble::new().with_witnesses(1).with_constraints(0),
+    );
+
+    let mut bytes = vec![0xfa; 32];
+
+    generator
+        .try_fill_bytes(&mut bytes)
+        .expect("failed to fill bytes");
 }
 
 #[test]
