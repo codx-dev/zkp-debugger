@@ -1,7 +1,7 @@
 use core::mem;
 use std::io;
 
-use crate::{AtomicConfig, Config, Constraint, Element, Witness};
+use crate::{AtomicConfig, Config, Constraint, Context, ContextUnit, Element, Source, Witness};
 
 /// Metadata information of the CDF file
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -55,7 +55,7 @@ impl Preamble {
     }
 
     /// Calculate the total length of the CDF output
-    pub fn total_len(&self) -> usize {
+    pub fn len_elements(&self) -> usize {
         Self::LEN
             + self.witnesses * Witness::len(&self.config)
             + self.constraints * Constraint::len(&self.config)
@@ -74,6 +74,14 @@ impl Preamble {
                 + idx * Constraint::len(&self.config)
         })
     }
+
+    /// Cache starting position
+    pub fn source_cache_offset(&self, idx: usize) -> usize {
+        Self::LEN
+            + self.witnesses * Witness::len(&self.config)
+            + self.constraints * Constraint::len(&self.config)
+            + idx * Source::PATH_LEN as usize
+    }
 }
 
 impl Element for Preamble {
@@ -87,16 +95,30 @@ impl Element for Preamble {
         Self::LEN
     }
 
-    fn to_buffer(&self, _config: &Self::Config, buf: &mut [u8]) {
-        let buf = self.witnesses.encode(&AtomicConfig, buf);
-        let buf = self.constraints.encode(&AtomicConfig, buf);
-        let _ = self.config.encode(&AtomicConfig, buf);
+    fn to_buffer(&self, _config: &Self::Config, context: &mut ContextUnit, buf: &mut [u8]) {
+        let buf = self.witnesses.encode(&AtomicConfig, context, buf);
+        let buf = self.constraints.encode(&AtomicConfig, context, buf);
+        let _ = self.config.encode(&AtomicConfig, context, buf);
     }
 
-    fn try_from_buffer_in_place(&mut self, _config: &Self::Config, buf: &[u8]) -> io::Result<()> {
-        let buf = self.witnesses.try_decode_in_place(&AtomicConfig, buf)?;
-        let buf = self.constraints.try_decode_in_place(&AtomicConfig, buf)?;
-        let _ = self.config.try_decode_in_place(&AtomicConfig, buf)?;
+    fn try_from_buffer_in_place<S>(
+        &mut self,
+        _config: &Self::Config,
+        context: &mut Context<S>,
+        buf: &[u8],
+    ) -> io::Result<()>
+    where
+        S: io::Read + io::Seek,
+    {
+        let buf = self
+            .witnesses
+            .try_decode_in_place(&AtomicConfig, context, buf)?;
+        let buf = self
+            .constraints
+            .try_decode_in_place(&AtomicConfig, context, buf)?;
+        let _ = self
+            .config
+            .try_decode_in_place(&AtomicConfig, context, buf)?;
 
         Ok(())
     }

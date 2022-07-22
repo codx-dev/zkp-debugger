@@ -1,7 +1,7 @@
 use std::io;
 use std::ops::{Deref, DerefMut};
 
-use crate::{Config, Element, Preamble};
+use crate::{Config, Context, ContextUnit, Element, Preamble};
 
 /// Scalar field representation with up to 256 bits.
 ///
@@ -57,7 +57,7 @@ impl Element for Scalar {
         }
     }
 
-    fn to_buffer(&self, config: &Self::Config, buf: &mut [u8]) {
+    fn to_buffer(&self, config: &Self::Config, _context: &mut ContextUnit, buf: &mut [u8]) {
         if !config.zeroed_scalar_values {
             let buf = &mut buf[..Self::LEN];
 
@@ -65,7 +65,12 @@ impl Element for Scalar {
         }
     }
 
-    fn try_from_buffer_in_place(&mut self, config: &Self::Config, buf: &[u8]) -> io::Result<()> {
+    fn try_from_buffer_in_place<S>(
+        &mut self,
+        config: &Self::Config,
+        _context: &mut Context<S>,
+        buf: &[u8],
+    ) -> io::Result<()> {
         if !config.zeroed_scalar_values {
             self.scalar.copy_from_slice(&buf[..Self::LEN]);
         }

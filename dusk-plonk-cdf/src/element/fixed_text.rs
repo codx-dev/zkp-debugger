@@ -1,7 +1,7 @@
 use std::ops::Deref;
 use std::{fmt, io, mem};
 
-use crate::{bytes, AtomicConfig, Config, Element, Preamble};
+use crate::{bytes, AtomicConfig, Config, Context, ContextUnit, Element, Preamble};
 
 /// Text representation with fixed `N` bytes.
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -51,16 +51,24 @@ impl<const N: u16> Element for FixedText<N> {
         N as usize
     }
 
-    fn to_buffer(&self, _config: &Self::Config, buf: &mut [u8]) {
+    fn to_buffer(&self, _config: &Self::Config, context: &mut ContextUnit, buf: &mut [u8]) {
         let bytes = self.0.as_bytes();
 
-        let buf = (bytes.len() as u16).encode(&AtomicConfig, buf);
+        let buf = (bytes.len() as u16).encode(&AtomicConfig, context, buf);
 
         let _ = bytes::encode_bytes(bytes, buf);
     }
 
-    fn try_from_buffer_in_place(&mut self, _config: &Self::Config, buf: &[u8]) -> io::Result<()> {
-        let (len, buf) = u16::try_decode(&AtomicConfig, buf)?;
+    fn try_from_buffer_in_place<S>(
+        &mut self,
+        _config: &Self::Config,
+        context: &mut Context<S>,
+        buf: &[u8],
+    ) -> io::Result<()>
+    where
+        S: io::Read + io::Seek,
+    {
+        let (len, buf) = u16::try_decode(&AtomicConfig, context, buf)?;
 
         self.0 = String::from_utf8(buf[..len as usize].to_vec())
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
@@ -71,17 +79,4 @@ impl<const N: u16> Element for FixedText<N> {
     fn validate(&self, _config: &Preamble) -> io::Result<()> {
         Ok(())
     }
-}
-
-#[test]
-fn invalid_utf8_wont_panic() {
-    let invalid_utf8 = vec![0, 159, 146, 150];
-    let mut buffer = (invalid_utf8.len() as u16).to_le_bytes().to_vec();
-
-    buffer.extend(&invalid_utf8);
-
-    String::from_utf8(invalid_utf8).expect_err("invalid char shouldn't generate string");
-
-    FixedText::<1>::try_from_buffer(&Default::default(), &buffer)
-        .expect_err("invalid char shouldn't generate fixed text");
 }

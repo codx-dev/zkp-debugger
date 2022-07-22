@@ -4,7 +4,7 @@ mod scalar;
 
 use std::io;
 
-use crate::{Config, Preamble};
+use crate::{Config, Context, ContextUnit, Preamble};
 
 pub use fixed_text::FixedText;
 pub use scalar::Scalar;
@@ -34,31 +34,45 @@ pub trait Element: Sized {
     ///
     /// This will enforce the implementors to be designed to not hold stateful serialization,
     /// allowing greater flexibility of usage.
-    fn to_buffer(&self, config: &Self::Config, buf: &mut [u8]);
+    fn to_buffer(&self, config: &Self::Config, context: &mut ContextUnit, buf: &mut [u8]);
 
     /// Deserialize the type from a given buffer
     ///
     /// As in [`Self::to_buffer`] the implementor of this function can assume the buffer is big
     /// enough to contain all the required bytes.
-    fn try_from_buffer_in_place(&mut self, config: &Self::Config, buf: &[u8]) -> io::Result<()>;
+    fn try_from_buffer_in_place<S>(
+        &mut self,
+        config: &Self::Config,
+        context: &mut Context<S>,
+        buf: &[u8],
+    ) -> io::Result<()>
+    where
+        S: io::Read + io::Seek;
 
     /// Perform the internal validations of the associated element
     fn validate(&self, preamble: &Preamble) -> io::Result<()>;
 
     /// Serialize the object into a bytes array.
-    fn to_vec(&self, config: &Self::Config) -> Vec<u8> {
+    fn to_vec(&self, config: &Self::Config, context: &mut ContextUnit) -> Vec<u8> {
         let mut bytes = vec![0u8; Self::len(config)];
 
-        self.to_buffer(config, &mut bytes);
+        self.to_buffer(config, context, &mut bytes);
 
         bytes
     }
 
     /// Create a new instance of the type from the provided buffer
-    fn try_from_buffer(config: &Self::Config, buf: &[u8]) -> io::Result<Self> {
+    fn try_from_buffer<S>(
+        config: &Self::Config,
+        context: &mut Context<S>,
+        buf: &[u8],
+    ) -> io::Result<Self>
+    where
+        S: io::Read + io::Seek,
+    {
         let mut slf = Self::zeroed();
 
-        slf.try_from_buffer_in_place(config, buf)?;
+        slf.try_from_buffer_in_place(config, context, buf)?;
 
         Ok(slf)
     }
@@ -66,22 +80,33 @@ pub trait Element: Sized {
     /// Write an element from the buffer, and return the remainder bytes
     ///
     /// Assume its inside a validate buffer context
-    fn try_decode_in_place<'a>(
+    fn try_decode_in_place<'a, S>(
         &mut self,
         config: &Self::Config,
+        context: &mut Context<S>,
         buf: &'a [u8],
-    ) -> io::Result<&'a [u8]> {
-        self.try_from_buffer_in_place(config, buf)
+    ) -> io::Result<&'a [u8]>
+    where
+        S: io::Read + io::Seek,
+    {
+        self.try_from_buffer_in_place(config, context, buf)
             .map(|_| &buf[Self::len(config)..])
     }
 
     /// Write an element from the buffer, and return the remainder bytes
     ///
     /// Assume its inside a validate buffer context
-    fn try_decode<'a>(config: &Self::Config, buf: &'a [u8]) -> io::Result<(Self, &'a [u8])> {
+    fn try_decode<'a, S>(
+        config: &Self::Config,
+        context: &mut Context<S>,
+        buf: &'a [u8],
+    ) -> io::Result<(Self, &'a [u8])>
+    where
+        S: io::Read + io::Seek,
+    {
         let mut slf = Self::zeroed();
 
-        let buf = slf.try_decode_in_place(config, buf)?;
+        let buf = slf.try_decode_in_place(config, context, buf)?;
 
         Ok((slf, buf))
     }
@@ -89,28 +114,44 @@ pub trait Element: Sized {
     /// Read an element into the buffer, returning the remainder bytes
     ///
     /// Assume its inside a validate buffer context
-    fn encode<'a>(&self, config: &Self::Config, buf: &'a mut [u8]) -> &'a mut [u8] {
-        self.to_buffer(config, buf);
+    fn encode<'a>(
+        &self,
+        config: &Self::Config,
+        context: &mut ContextUnit,
+        buf: &'a mut [u8],
+    ) -> &'a mut [u8] {
+        self.to_buffer(config, context, buf);
 
         &mut buf[Self::len(config)..]
     }
 
     /// Send the bytes representation of an element to a writer
-    fn try_to_writer<W>(&self, mut writer: W, config: &Self::Config) -> io::Result<usize>
+    fn try_to_writer<W>(
+        &self,
+        mut writer: W,
+        config: &Self::Config,
+        context: &mut ContextUnit,
+    ) -> io::Result<usize>
     where
         W: io::Write,
     {
-        writer.write(&self.to_vec(config))
+        writer.write(&self.to_vec(config, context))
     }
 
-    /// Fetch a new element from a reader
-    fn try_from_reader<R>(mut reader: R, config: &Self::Config) -> io::Result<Self>
+    /// Fetch a new element from a context
+    fn try_from_context<S>(config: &Self::Config, context: &mut Context<S>) -> io::Result<Self>
     where
-        R: io::Read,
+        S: io::Read + io::Seek,
     {
         let mut slf = vec![0u8; Self::len(config)];
-        let _ = reader.read(&mut slf)?;
 
-        Self::try_from_buffer(config, &slf)
+        context
+            .source()
+            .ok_or_else(|| {
+                io::Error::new(io::ErrorKind::Other, "no reader available in the context")
+            })
+            .and_then(|r| r.read(&mut slf))?;
+
+        Self::try_from_buffer(config, context, &slf)
     }
 }

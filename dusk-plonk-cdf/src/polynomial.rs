@@ -1,6 +1,8 @@
 use std::io;
 
-use crate::{AtomicConfig, Config, Element, IndexedWitness, Preamble, Scalar};
+use crate::{
+    AtomicConfig, Config, Context, ContextUnit, Element, IndexedWitness, Preamble, Scalar,
+};
 
 /// PLONK polynomial expression representation with its selectors and witnesses.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
@@ -95,34 +97,42 @@ impl Element for Polynomial {
         7 * Scalar::len(config) + 4 * IndexedWitness::len(config) + bool::len(&AtomicConfig)
     }
 
-    fn to_buffer(&self, config: &Self::Config, buf: &mut [u8]) {
-        let buf = self.qm.encode(config, buf);
-        let buf = self.ql.encode(config, buf);
-        let buf = self.qr.encode(config, buf);
-        let buf = self.qd.encode(config, buf);
-        let buf = self.qc.encode(config, buf);
-        let buf = self.qo.encode(config, buf);
-        let buf = self.pi.encode(config, buf);
-        let buf = self.a.encode(config, buf);
-        let buf = self.b.encode(config, buf);
-        let buf = self.d.encode(config, buf);
-        let buf = self.o.encode(config, buf);
-        let _ = self.re.encode(&AtomicConfig, buf);
+    fn to_buffer(&self, config: &Self::Config, context: &mut ContextUnit, buf: &mut [u8]) {
+        let buf = self.qm.encode(config, context, buf);
+        let buf = self.ql.encode(config, context, buf);
+        let buf = self.qr.encode(config, context, buf);
+        let buf = self.qd.encode(config, context, buf);
+        let buf = self.qc.encode(config, context, buf);
+        let buf = self.qo.encode(config, context, buf);
+        let buf = self.pi.encode(config, context, buf);
+        let buf = self.a.encode(config, context, buf);
+        let buf = self.b.encode(config, context, buf);
+        let buf = self.d.encode(config, context, buf);
+        let buf = self.o.encode(config, context, buf);
+        let _ = self.re.encode(&AtomicConfig, context, buf);
     }
 
-    fn try_from_buffer_in_place(&mut self, config: &Self::Config, buf: &[u8]) -> io::Result<()> {
-        let buf = self.qm.try_decode_in_place(config, buf)?;
-        let buf = self.ql.try_decode_in_place(config, buf)?;
-        let buf = self.qr.try_decode_in_place(config, buf)?;
-        let buf = self.qd.try_decode_in_place(config, buf)?;
-        let buf = self.qc.try_decode_in_place(config, buf)?;
-        let buf = self.qo.try_decode_in_place(config, buf)?;
-        let buf = self.pi.try_decode_in_place(config, buf)?;
-        let buf = self.a.try_decode_in_place(config, buf)?;
-        let buf = self.b.try_decode_in_place(config, buf)?;
-        let buf = self.d.try_decode_in_place(config, buf)?;
-        let buf = self.o.try_decode_in_place(config, buf)?;
-        let _ = self.re.try_decode_in_place(&AtomicConfig, buf)?;
+    fn try_from_buffer_in_place<S>(
+        &mut self,
+        config: &Self::Config,
+        context: &mut Context<S>,
+        buf: &[u8],
+    ) -> io::Result<()>
+    where
+        S: io::Read + io::Seek,
+    {
+        let buf = self.qm.try_decode_in_place(config, context, buf)?;
+        let buf = self.ql.try_decode_in_place(config, context, buf)?;
+        let buf = self.qr.try_decode_in_place(config, context, buf)?;
+        let buf = self.qd.try_decode_in_place(config, context, buf)?;
+        let buf = self.qc.try_decode_in_place(config, context, buf)?;
+        let buf = self.qo.try_decode_in_place(config, context, buf)?;
+        let buf = self.pi.try_decode_in_place(config, context, buf)?;
+        let buf = self.a.try_decode_in_place(config, context, buf)?;
+        let buf = self.b.try_decode_in_place(config, context, buf)?;
+        let buf = self.d.try_decode_in_place(config, context, buf)?;
+        let buf = self.o.try_decode_in_place(config, context, buf)?;
+        let _ = self.re.try_decode_in_place(&AtomicConfig, context, buf)?;
 
         Ok(())
     }

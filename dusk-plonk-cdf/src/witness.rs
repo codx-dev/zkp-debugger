@@ -1,23 +1,23 @@
 use std::io;
 
-use crate::{AtomicConfig, Config, Element, Preamble, Scalar, Source};
+use crate::{AtomicConfig, Config, Context, ContextUnit, Element, Preamble, Scalar, Source};
 
 /// Witness allocation representation
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Witness {
-    id: u64,
+    id: usize,
     value: Scalar,
     source: Source,
 }
 
 impl Witness {
     /// Create a new witness
-    pub const fn new(id: u64, value: Scalar, source: Source) -> Self {
+    pub const fn new(id: usize, value: Scalar, source: Source) -> Self {
         Self { id, value, source }
     }
 
     /// Id of the witness in the constraint system
-    pub const fn id(&self) -> u64 {
+    pub const fn id(&self) -> usize {
         self.id
     }
 
@@ -40,19 +40,27 @@ impl Element for Witness {
     }
 
     fn len(config: &Self::Config) -> usize {
-        u64::len(&AtomicConfig) + Scalar::len(config) + Source::len(config)
+        usize::len(&AtomicConfig) + Scalar::len(config) + Source::len(config)
     }
 
-    fn to_buffer(&self, config: &Self::Config, buf: &mut [u8]) {
-        let buf = self.id.encode(&AtomicConfig, buf);
-        let buf = self.value.encode(config, buf);
-        let _ = self.source.encode(config, buf);
+    fn to_buffer(&self, config: &Self::Config, context: &mut ContextUnit, buf: &mut [u8]) {
+        let buf = self.id.encode(&AtomicConfig, context, buf);
+        let buf = self.value.encode(config, context, buf);
+        let _ = self.source.encode(config, context, buf);
     }
 
-    fn try_from_buffer_in_place(&mut self, config: &Self::Config, buf: &[u8]) -> io::Result<()> {
-        let buf = self.id.try_decode_in_place(&AtomicConfig, buf)?;
-        let buf = self.value.try_decode_in_place(config, buf)?;
-        let _ = self.source.try_decode_in_place(config, buf)?;
+    fn try_from_buffer_in_place<S>(
+        &mut self,
+        config: &Self::Config,
+        context: &mut Context<S>,
+        buf: &[u8],
+    ) -> io::Result<()>
+    where
+        S: io::Read + io::Seek,
+    {
+        let buf = self.id.try_decode_in_place(&AtomicConfig, context, buf)?;
+        let buf = self.value.try_decode_in_place(config, context, buf)?;
+        let _ = self.source.try_decode_in_place(config, context, buf)?;
 
         Ok(())
     }

@@ -20,8 +20,8 @@ fn indexed_witness_validate_works() {
     let origin = generated.origin();
     let value = generated.value();
 
-    let ok_id = cmp::min(id, witnesses as u64 - 1);
-    let wrong_id = cmp::max(id, witnesses as u64);
+    let ok_id = cmp::min(id, witnesses - 1);
+    let wrong_id = cmp::max(id, witnesses);
 
     IndexedWitness::new(ok_id, *origin, *value)
         .validate(&preamble)
@@ -34,11 +34,11 @@ fn indexed_witness_validate_works() {
     let ok_constraint = constraints - 1;
     let wrong_constraint = constraints;
 
-    IndexedWitness::new(ok_id, Some(ok_constraint as u64), *value)
+    IndexedWitness::new(ok_id, Some(ok_constraint), *value)
         .validate(&preamble)
         .expect("consistent indexed witness should validate");
 
-    IndexedWitness::new(ok_id, Some(wrong_constraint as u64), *value)
+    IndexedWitness::new(ok_id, Some(wrong_constraint), *value)
         .validate(&preamble)
         .expect_err("inconsistent indexed witness shouldn't validate");
 }
