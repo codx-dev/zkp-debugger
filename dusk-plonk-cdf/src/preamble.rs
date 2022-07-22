@@ -54,13 +54,6 @@ impl Preamble {
         self
     }
 
-    /// Calculate the total length of the CDF output
-    pub fn len_elements(&self) -> usize {
-        Self::LEN
-            + self.witnesses * Witness::len(&self.config)
-            + self.constraints * Constraint::len(&self.config)
-    }
-
     /// Witness offset in CDF, from an index
     pub fn witness_offset(&self, idx: usize) -> Option<usize> {
         (idx < self.witnesses).then(|| Self::LEN + idx * Witness::len(&self.config))

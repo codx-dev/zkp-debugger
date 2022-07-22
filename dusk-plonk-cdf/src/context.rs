@@ -55,14 +55,12 @@ where
 {
     /// Attempt to fetch a path from source cache
     pub fn fetch_source_path(&mut self, idx: usize) -> io::Result<FixedText<{ Source::PATH_LEN }>> {
+        // The API won't allow the creation of a context with a backend that implements read/seek
+        // (hence, different than unit) without a CDF since the only entrypoint is
+        // `Context::with_cdf`, and that is never taken.
         self.cdf
             .as_mut()
-            .ok_or_else(|| {
-                io::Error::new(
-                    io::ErrorKind::Other,
-                    "cdf provider is not set in the context",
-                )
-            })
-            .and_then(|cdf| cdf.fetch_source(idx))
+            .expect("unreachable empty cdf backend")
+            .fetch_source(idx)
     }
 }
