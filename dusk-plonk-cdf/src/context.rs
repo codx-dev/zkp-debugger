@@ -14,8 +14,11 @@ pub struct Context<S> {
 
 impl ContextUnit {
     /// Create a new context without CDF backend
-    pub fn unit() -> Self {
-        Self::default()
+    pub const fn unit() -> Self {
+        Self {
+            source_cache_id: None,
+            cdf: None,
+        }
     }
 }
 
