@@ -1,9 +1,13 @@
 use core::borrow::Borrow;
+use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::io::{self, Seek, Write};
 use std::path::Path;
 
-use crate::{AtomicConfig, Config, Constraint, Element, Preamble, Witness};
+use crate::{
+    AtomicConfig, Config, Constraint, Context, ContextUnit, Element, FixedText, Preamble, Source,
+    Witness,
+};
 
 /// An encoder for CDF format
 #[derive(Debug)]
@@ -62,7 +66,7 @@ where
         P: AsRef<Path>,
     {
         let preamble = Self::init_preamble(config, &witnesses, &constraints);
-        let len = preamble.total_len();
+        let len = preamble.source_cache_offset(0);
 
         let file = OpenOptions::new().write(true).create(true).open(path)?;
 
@@ -88,7 +92,7 @@ where
         buffer: B,
     ) -> io::Result<Self> {
         let preamble = Self::init_preamble(config, &witnesses, &constraints);
-        let len = preamble.total_len();
+        let len = preamble.source_cache_offset(0);
 
         let mut buffer = io::BufWriter::new(buffer);
 
@@ -120,7 +124,7 @@ where
     /// Initialize the encoder, filling the cursor with required bytes.
     pub fn init_cursor(config: Config, witnesses: WI, constraints: CI) -> Self {
         let preamble = Self::init_preamble(config, &witnesses, &constraints);
-        let len = preamble.total_len();
+        let len = preamble.source_cache_offset(0);
 
         let bytes = vec![0u8; len];
         let cursor = io::Cursor::new(bytes);
@@ -137,6 +141,47 @@ where
     CI: Iterator<Item = C> + ExactSizeIterator,
     T: io::Write + io::Seek,
 {
+    // this function is internal so this excessive args count won't leak to the API
+    #[allow(clippy::too_many_arguments)]
+    fn write_iter<B, E, I, FID, FP, FO>(
+        config: &<E as Element>::Config,
+        preamble: &Preamble,
+        source_cache: &mut HashMap<FixedText<{ Source::PATH_LEN }>, usize>,
+        context: &mut ContextUnit,
+        n: usize,
+        mut iter: I,
+        fid: FID,
+        fp: FP,
+        fo: FO,
+        target: &mut T,
+    ) -> io::Result<usize>
+    where
+        B: Borrow<E>,
+        E: Element,
+        I: Iterator<Item = B>,
+        FID: Fn(&E) -> usize,
+        FP: Fn(&E) -> FixedText<{ Source::PATH_LEN }>,
+        FO: Fn(&Preamble, usize) -> Option<usize>,
+    {
+        iter.try_fold(n, |n, l| {
+            let l = l.borrow();
+            let id = fid(l);
+
+            let path = fp(l);
+            let source_id = source_cache.len();
+            let source_id = *source_cache.entry(path).or_insert(source_id);
+
+            let ctx = context.with_source_cache_id(source_id);
+
+            fo(preamble, id)
+                .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "failed to calculate offset"))
+                .map(|ofs| io::SeekFrom::Start(ofs as u64))
+                .and_then(|ofs| target.seek(ofs))
+                .and_then(|_| l.try_to_writer(target.by_ref(), config, ctx))
+                .map(|x| n + x)
+        })
+    }
+
     /// Write all witnesses and constraints into the target
     pub fn write_all(&mut self) -> io::Result<usize>
     where
@@ -151,32 +196,52 @@ where
         let constraints = &mut self.constraints;
         let target = &mut self.target;
 
-        let n = preamble.try_to_writer(target.by_ref(), &AtomicConfig)?;
+        let context = &mut Context::unit();
+        let mut source_cache: HashMap<FixedText<{ Source::PATH_LEN }>, usize> = HashMap::new();
 
-        let n = witnesses.try_fold(n, |n, w| {
-            let w = w.borrow();
-            let id = w.id() as usize;
+        let n = preamble.try_to_writer(target.by_ref(), &AtomicConfig, context)?;
 
-            preamble
-                .witness_offset(id)
-                .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "failed to calculate offset"))
-                .map(|ofs| io::SeekFrom::Start(ofs as u64))
-                .and_then(|ofs| target.seek(ofs))
-                .and_then(|_| w.try_to_writer(target.by_ref(), config))
-                .map(|x| n + x)
-        })?;
+        let n = Self::write_iter(
+            config,
+            preamble,
+            &mut source_cache,
+            context,
+            n,
+            witnesses,
+            |w| w.id(),
+            |w| w.source().path().clone(),
+            Preamble::witness_offset,
+            target,
+        )?;
 
-        let n = constraints.try_fold(n, |n, c| {
-            let c = c.borrow();
-            let id = c.id() as usize;
+        let n = Self::write_iter(
+            config,
+            preamble,
+            &mut source_cache,
+            context,
+            n,
+            constraints,
+            |c| c.id(),
+            |c| c.source().path().clone(),
+            Preamble::constraint_offset,
+            target,
+        )?;
 
-            preamble
-                .constraint_offset(id)
-                .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "failed to calculate offset"))
-                .map(|ofs| io::SeekFrom::Start(ofs as u64))
-                .and_then(|ofs| target.seek(ofs))
-                .and_then(|_| c.try_to_writer(target.by_ref(), config))
-                .map(|x| n + x)
+        let mut source_cache: Vec<(FixedText<{ Source::PATH_LEN }>, usize)> =
+            source_cache.into_iter().collect();
+
+        source_cache.as_mut_slice().sort_by_key(|x| x.1);
+
+        // Move the cursor to the logical end of the file
+        let ofs = preamble.source_cache_offset(0);
+        let ofs = io::SeekFrom::Start(ofs as u64);
+
+        target.seek(ofs)?;
+
+        let n = source_cache.into_iter().try_fold(n, |n, (path, _idx)| {
+            path.try_to_writer(target.by_ref(), config, context)
+                .map(|x| x + n)
+                .and_then(|n| target.seek(io::SeekFrom::Start(n as u64)).map(|_| n))
         })?;
 
         Ok(n)

@@ -2,7 +2,7 @@ use std::fs::{File, OpenOptions};
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::{AtomicConfig, Config, Element, FixedText, Preamble};
+use crate::{AtomicConfig, Config, Context, ContextUnit, Element, FixedText, Preamble};
 
 /// Source file representation for debug mapping, including line and column of a file
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -51,19 +51,35 @@ impl Element for Source {
     }
 
     fn len(_config: &Self::Config) -> usize {
-        2 * u64::len(&AtomicConfig) + Self::PATH_LEN as usize
+        3 * u64::len(&AtomicConfig)
     }
 
-    fn to_buffer(&self, config: &Self::Config, buf: &mut [u8]) {
-        let buf = self.line.encode(&AtomicConfig, buf);
-        let buf = self.col.encode(&AtomicConfig, buf);
-        let _ = self.path.encode(config, buf);
+    fn to_buffer(&self, _config: &Self::Config, context: &mut ContextUnit, buf: &mut [u8]) {
+        let source_id = context.take_source_cache_id().unwrap_or_default();
+
+        let buf = self.line.encode(&AtomicConfig, context, buf);
+        let buf = self.col.encode(&AtomicConfig, context, buf);
+        let _ = source_id.encode(&AtomicConfig, context, buf);
     }
 
-    fn try_from_buffer_in_place(&mut self, config: &Self::Config, buf: &[u8]) -> io::Result<()> {
-        let buf = self.line.try_decode_in_place(&AtomicConfig, buf)?;
-        let buf = self.col.try_decode_in_place(&AtomicConfig, buf)?;
-        let _ = self.path.try_decode_in_place(config, buf)?;
+    fn try_from_buffer_in_place<S>(
+        &mut self,
+        config: &Self::Config,
+        context: &mut Context<S>,
+        buf: &[u8],
+    ) -> io::Result<()>
+    where
+        S: io::Read + io::Seek,
+    {
+        Self::validate_buffer_len(config, buf.len())?;
+
+        let mut source_id = 0usize;
+
+        let buf = self.line.try_decode_in_place(&AtomicConfig, context, buf)?;
+        let buf = self.col.try_decode_in_place(&AtomicConfig, context, buf)?;
+        let _ = source_id.try_decode_in_place(&AtomicConfig, context, buf)?;
+
+        self.path = context.fetch_source_path(source_id)?;
 
         Ok(())
     }

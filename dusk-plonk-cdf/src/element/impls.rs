@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use std::{io, mem};
 
-use crate::{bytes, AtomicConfig, Config, Element, Preamble};
+use crate::{bytes, AtomicConfig, Config, Context, ContextUnit, Element, Preamble};
 
 impl Element for bool {
     type Config = AtomicConfig;
@@ -14,11 +14,18 @@ impl Element for bool {
         1
     }
 
-    fn to_buffer(&self, _config: &Self::Config, buf: &mut [u8]) {
+    fn to_buffer(&self, _config: &Self::Config, _context: &mut ContextUnit, buf: &mut [u8]) {
         buf[0] = *self as u8;
     }
 
-    fn try_from_buffer_in_place(&mut self, _config: &Self::Config, buf: &[u8]) -> io::Result<()> {
+    fn try_from_buffer_in_place<S>(
+        &mut self,
+        config: &Self::Config,
+        _context: &mut Context<S>,
+        buf: &[u8],
+    ) -> io::Result<()> {
+        Self::validate_buffer_len(config, buf.len())?;
+
         *self = buf[0] != 0;
 
         Ok(())
@@ -42,15 +49,23 @@ macro_rules! impl_num {
                 mem::size_of::<$t>()
             }
 
-            fn to_buffer(&self, _config: &Self::Config, buf: &mut [u8]) {
+            fn to_buffer(
+                &self,
+                _config: &Self::Config,
+                _context: &mut ContextUnit,
+                buf: &mut [u8],
+            ) {
                 bytes::encode_bytes(&self.to_le_bytes(), buf);
             }
 
-            fn try_from_buffer_in_place(
+            fn try_from_buffer_in_place<S>(
                 &mut self,
-                _config: &Self::Config,
+                config: &Self::Config,
+                _context: &mut Context<S>,
                 buf: &[u8],
             ) -> io::Result<()> {
+                Self::validate_buffer_len(config, buf.len())?;
+
                 const LEN: usize = mem::size_of::<$t>();
 
                 let mut slf = [0u8; LEN];
@@ -71,7 +86,46 @@ macro_rules! impl_num {
 
 impl_num!(u16);
 impl_num!(u64);
-impl_num!(usize);
+
+// usize is implemented manually as u64 so the encoding will be platform agnostic
+impl Element for usize {
+    type Config = AtomicConfig;
+
+    fn zeroed() -> Self {
+        0
+    }
+
+    fn len(_config: &Self::Config) -> usize {
+        mem::size_of::<u64>()
+    }
+
+    fn to_buffer(&self, _config: &Self::Config, _context: &mut ContextUnit, buf: &mut [u8]) {
+        bytes::encode_bytes(&self.to_le_bytes(), buf);
+    }
+
+    fn try_from_buffer_in_place<S>(
+        &mut self,
+        config: &Self::Config,
+        _context: &mut Context<S>,
+        buf: &[u8],
+    ) -> io::Result<()> {
+        Self::validate_buffer_len(config, buf.len())?;
+
+        const LEN: usize = mem::size_of::<u64>();
+
+        let mut slf = [0u8; LEN];
+
+        slf.copy_from_slice(&buf[..LEN]);
+
+        *self = u64::from_le_bytes(slf) as usize;
+
+        Ok(())
+    }
+
+    fn validate(&self, _preamble: &Preamble) -> io::Result<()> {
+        Ok(())
+    }
+}
 
 impl<C, T> Element for Option<T>
 where
@@ -88,27 +142,37 @@ where
         T::len(config) + 1
     }
 
-    fn to_buffer(&self, config: &Self::Config, buf: &mut [u8]) {
-        let buf = self.is_some().encode(&AtomicConfig, buf);
+    fn to_buffer(&self, config: &Self::Config, context: &mut ContextUnit, buf: &mut [u8]) {
+        let buf = self.is_some().encode(&AtomicConfig, context, buf);
 
         // Will fill the space with zeroes, if `None`. This will guarantee deterministic
         // serialization, which will be desirable for checksum routines.
         match self {
-            Some(t) => t.to_buffer(config, buf),
+            Some(t) => t.to_buffer(config, context, buf),
             None => buf.fill(0),
         }
     }
 
-    fn try_from_buffer_in_place(&mut self, config: &Self::Config, buf: &[u8]) -> io::Result<()> {
-        let (is_some, buf) = bool::try_decode(&AtomicConfig, buf)?;
+    fn try_from_buffer_in_place<S>(
+        &mut self,
+        config: &Self::Config,
+        context: &mut Context<S>,
+        buf: &[u8],
+    ) -> io::Result<()>
+    where
+        S: io::Read + io::Seek,
+    {
+        Self::validate_buffer_len(config, buf.len())?;
+
+        let (is_some, buf) = bool::try_decode(&AtomicConfig, context, buf)?;
 
         match self {
             Some(t) if is_some => {
-                t.try_from_buffer_in_place(config, buf)?;
+                t.try_from_buffer_in_place(config, context, buf)?;
             }
 
             None if is_some => {
-                let t = T::try_from_buffer(config, buf)?;
+                let t = T::try_from_buffer(config, context, buf)?;
 
                 self.replace(t);
             }
@@ -138,9 +202,14 @@ impl Element for () {
         0
     }
 
-    fn to_buffer(&self, _config: &Self::Config, _buf: &mut [u8]) {}
+    fn to_buffer(&self, _config: &Self::Config, _context: &mut ContextUnit, _buf: &mut [u8]) {}
 
-    fn try_from_buffer_in_place(&mut self, _config: &Self::Config, _buf: &[u8]) -> io::Result<()> {
+    fn try_from_buffer_in_place<S>(
+        &mut self,
+        _config: &Self::Config,
+        _context: &mut Context<S>,
+        _buf: &[u8],
+    ) -> io::Result<()> {
         Ok(())
     }
 
@@ -160,9 +229,14 @@ impl<T> Element for PhantomData<T> {
         0
     }
 
-    fn to_buffer(&self, _config: &Self::Config, _buf: &mut [u8]) {}
+    fn to_buffer(&self, _config: &Self::Config, _context: &mut ContextUnit, _buf: &mut [u8]) {}
 
-    fn try_from_buffer_in_place(&mut self, _config: &Self::Config, _buf: &[u8]) -> io::Result<()> {
+    fn try_from_buffer_in_place<S>(
+        &mut self,
+        _config: &Self::Config,
+        _context: &mut Context<S>,
+        _buf: &[u8],
+    ) -> io::Result<()> {
         Ok(())
     }
 
@@ -187,19 +261,4 @@ fn validate_option_works() {
 fn validate_unit_works() {
     ().validate(&Default::default())
         .expect("default config validate should pass");
-}
-
-#[test]
-fn try_from_buffer_in_place_works_with_some() {
-    let val = 39802u64;
-    let bytes = Some(val).to_vec(&Default::default());
-
-    let mut some = Some(1);
-
-    some.try_from_buffer_in_place(&Default::default(), &bytes)
-        .expect("failed to restore option");
-
-    let val_p = some.expect("failed to fetch val");
-
-    assert_eq!(val, val_p);
 }

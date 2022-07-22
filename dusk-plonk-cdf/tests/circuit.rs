@@ -23,11 +23,11 @@ fn shuffled_circuit_is_sound_after_validation() {
         shuffled_w.shuffle(&mut generator);
         shuffled_c.shuffle(&mut generator);
 
-        if witnesses.len() != shuffled_w.len() {
+        if witnesses.len() > 1 {
             assert_ne!(witnesses, shuffled_w);
         }
 
-        if constraints.len() != shuffled_c.len() {
+        if constraints.len() > 1 {
             assert_ne!(constraints, shuffled_c);
         }
 

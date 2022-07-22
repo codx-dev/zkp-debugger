@@ -1,7 +1,7 @@
 use core::mem;
 use std::io;
 
-use crate::{Element, Preamble};
+use crate::{Context, ContextUnit, Element, Preamble};
 
 /// Empty config set for atomic serialization that is not parametrizable
 pub struct AtomicConfig;
@@ -69,14 +69,26 @@ impl Element for Config {
         Self::LEN
     }
 
-    fn to_buffer(&self, _config: &Self::Config, buf: &mut [u8]) {
-        let _ = self.zeroed_scalar_values.encode(&AtomicConfig, buf);
-    }
-
-    fn try_from_buffer_in_place(&mut self, _config: &Self::Config, buf: &[u8]) -> io::Result<()> {
+    fn to_buffer(&self, _config: &Self::Config, context: &mut ContextUnit, buf: &mut [u8]) {
         let _ = self
             .zeroed_scalar_values
-            .try_decode_in_place(&AtomicConfig, buf)?;
+            .encode(&AtomicConfig, context, buf);
+    }
+
+    fn try_from_buffer_in_place<S>(
+        &mut self,
+        config: &Self::Config,
+        context: &mut Context<S>,
+        buf: &[u8],
+    ) -> io::Result<()>
+    where
+        S: io::Read + io::Seek,
+    {
+        Self::validate_buffer_len(config, buf.len())?;
+
+        let _ = self
+            .zeroed_scalar_values
+            .try_decode_in_place(&AtomicConfig, context, buf)?;
 
         Ok(())
     }
@@ -104,6 +116,11 @@ fn builder_functions_works() {
 #[test]
 fn zeroed_works() {
     assert_eq!(Config::zeroed(), Config::DEFAULT)
+}
+
+#[test]
+fn atomic_config_has_default() {
+    AtomicConfig::default();
 }
 
 #[test]

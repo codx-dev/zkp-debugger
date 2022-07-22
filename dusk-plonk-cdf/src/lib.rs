@@ -20,6 +20,7 @@
 
 mod config;
 mod constraint;
+mod context;
 mod element;
 mod encoder;
 mod indexed_witness;
@@ -37,6 +38,7 @@ use std::path::Path;
 
 pub use config::{AtomicConfig, Config};
 pub use constraint::Constraint;
+pub use context::{Context, ContextUnit};
 pub use element::{Element, FixedText, Scalar};
 pub use encoder::Encoder;
 pub use indexed_witness::IndexedWitness;
@@ -78,10 +80,19 @@ impl<S> CircuitDescription<S>
 where
     S: io::Read,
 {
-    /// Create a new circuit description instance.
-    pub fn from_reader(mut source: S) -> io::Result<Self> {
-        Preamble::try_from_reader(source.by_ref(), &AtomicConfig)
-            .map(|preamble| Self { source, preamble })
+    /// Create a new instance of the CDF consumer by reference
+    pub fn by_ref(&mut self) -> CircuitDescription<&mut S> {
+        CircuitDescription {
+            source: self.source.by_ref(),
+            preamble: self.preamble,
+        }
+    }
+
+    /// Create a new context with a referennce to the underlying source
+    pub fn context(&mut self) -> Context<&mut S> {
+        let ctx = self.by_ref();
+
+        Context::with_cdf(ctx)
     }
 }
 
@@ -89,50 +100,61 @@ impl<S> CircuitDescription<S>
 where
     S: io::Read + io::Seek,
 {
+    /// Create a new circuit description instance.
+    pub fn from_reader(source: S) -> io::Result<Self> {
+        let mut cdf = Self {
+            source,
+            preamble: Preamble::default(),
+        };
+
+        let ctx = &mut cdf.context();
+
+        cdf.preamble = Preamble::try_from_context(&AtomicConfig, ctx)?;
+
+        Ok(cdf)
+    }
+
     /// Attempt to read an indexed constraint from the source
     pub fn fetch_constraint(&mut self, idx: usize) -> io::Result<Constraint> {
-        let preamble = &self.preamble;
-        let config = &self.preamble.config;
-        let source = &mut self.source;
+        self.preamble
+            .constraint_offset(idx)
+            .ok_or_else(|| {
+                io::Error::new(io::ErrorKind::Other, "attempt to fetch invalid constraint")
+            })
+            .map(|ofs| io::SeekFrom::Start(ofs as u64))
+            .and_then(|ofs| self.source.seek(ofs))?;
 
-        if idx >= preamble.constraints {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "attempt to fetch invalid constraint",
-            ));
-        }
+        let config = self.preamble.config;
+        let mut ctx = self.context();
 
-        let offset = Preamble::LEN
-            + preamble.witnesses * Witness::len(config)
-            + idx * Constraint::len(config);
-
-        let offset = io::SeekFrom::Start(offset as u64);
-
-        source.seek(offset)?;
-
-        Constraint::try_from_reader(source, config)
+        Constraint::try_from_context(&config, &mut ctx)
     }
 
     /// Attempt to read an indexed witness from the source
     pub fn fetch_witness(&mut self, idx: usize) -> io::Result<Witness> {
-        let preamble = &self.preamble;
-        let config = &self.preamble.config;
-        let source = &mut self.source;
+        self.preamble
+            .witness_offset(idx)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "attempt to fetch invalid witness"))
+            .map(|ofs| io::SeekFrom::Start(ofs as u64))
+            .and_then(|ofs| self.source.seek(ofs))?;
 
-        if idx >= preamble.witnesses {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "attempt to fetch invalid witness",
-            ));
-        }
+        let config = self.preamble.config;
+        let mut ctx = self.context();
 
-        let offset = Preamble::LEN + idx * Witness::len(config);
+        Witness::try_from_context(&config, &mut ctx)
+    }
 
-        let offset = io::SeekFrom::Start(offset as u64);
+    /// Attempt to fetch a path from source cache
+    pub fn fetch_source(&mut self, idx: usize) -> io::Result<FixedText<{ Source::PATH_LEN }>> {
+        let ofs = self.preamble.source_cache_offset(idx);
+        let ofs = io::SeekFrom::Start(ofs as u64);
 
-        source.seek(offset)?;
+        self.source.seek(ofs)?;
 
-        Witness::try_from_reader(source, config)
+        let config = self.preamble.config;
+        let mut ctx = self.context();
+
+        FixedText::try_from_context(&config, &mut ctx)
     }
 }
 

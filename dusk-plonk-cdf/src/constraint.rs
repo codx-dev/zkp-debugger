@@ -1,18 +1,20 @@
 use std::io;
 
-use crate::{AtomicConfig, Config, Element, Polynomial, Preamble, Scalar, Source};
+use crate::{
+    AtomicConfig, Config, Context, ContextUnit, Element, Polynomial, Preamble, Scalar, Source,
+};
 
 /// Constraint gate of a circuit
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct Constraint {
-    id: u64,
+    id: usize,
     polynomial: Polynomial,
     source: Source,
 }
 
 impl Constraint {
     /// Generate a new constraint
-    pub const fn new(id: u64, polynomial: Polynomial, source: Source) -> Self {
+    pub const fn new(id: usize, polynomial: Polynomial, source: Source) -> Self {
         Self {
             id,
             polynomial,
@@ -21,7 +23,7 @@ impl Constraint {
     }
 
     /// Id of the gate in the constraint system
-    pub const fn id(&self) -> u64 {
+    pub const fn id(&self) -> usize {
         self.id
     }
 
@@ -49,22 +51,32 @@ impl Element for Constraint {
     }
 
     fn len(config: &Self::Config) -> usize {
-        u64::len(&AtomicConfig)
+        usize::len(&AtomicConfig)
             + Scalar::len(config)
             + Polynomial::len(config)
             + Source::len(config)
     }
 
-    fn to_buffer(&self, config: &Self::Config, buf: &mut [u8]) {
-        let buf = self.id.encode(&AtomicConfig, buf);
-        let buf = self.polynomial.encode(config, buf);
-        let _ = self.source.encode(config, buf);
+    fn to_buffer(&self, config: &Self::Config, context: &mut ContextUnit, buf: &mut [u8]) {
+        let buf = self.id.encode(&AtomicConfig, context, buf);
+        let buf = self.polynomial.encode(config, context, buf);
+        let _ = self.source.encode(config, context, buf);
     }
 
-    fn try_from_buffer_in_place(&mut self, config: &Self::Config, buf: &[u8]) -> io::Result<()> {
-        let buf = self.id.try_decode_in_place(&AtomicConfig, buf)?;
-        let buf = self.polynomial.try_decode_in_place(config, buf)?;
-        let _ = self.source.try_decode_in_place(config, buf)?;
+    fn try_from_buffer_in_place<S>(
+        &mut self,
+        config: &Self::Config,
+        context: &mut Context<S>,
+        buf: &[u8],
+    ) -> io::Result<()>
+    where
+        S: io::Read + io::Seek,
+    {
+        Self::validate_buffer_len(config, buf.len())?;
+
+        let buf = self.id.try_decode_in_place(&AtomicConfig, context, buf)?;
+        let buf = self.polynomial.try_decode_in_place(config, context, buf)?;
+        let _ = self.source.try_decode_in_place(config, context, buf)?;
 
         Ok(())
     }
