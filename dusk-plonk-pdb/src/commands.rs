@@ -180,3 +180,72 @@ impl CommandParser {
         Command::try_from_binary(instruction, &tokens[1])
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn validate_return_all_instructions() {
+    
+        let default = &CommandParser::default();
+        let default_val = CommandParser::instructions( default );
+        let vec_actions = vec![
+                                                Instruction::Afore,
+                                                Instruction::Breakpoint,
+                                                Instruction::Continue,
+                                                Instruction::Delete,
+                                                Instruction::Goto,
+                                                Instruction::Help,
+                                                Instruction::Next,
+                                                Instruction::Open,
+                                                Instruction::Print,
+                                                Instruction::Restart,
+                                                Instruction::Turn,
+                                                Instruction::Quit,
+                                                Instruction::Witness,
+                                            ];
+        assert_eq!(default_val, vec_actions);
+    }
+
+    #[test]
+    fn validade_clone_intructinos(){
+        let default = &CommandParser::default();
+        let cloned = &CommandParser::clone(&CommandParser::default());
+        assert_eq!(default.instructions, cloned.instructions);
+    }
+
+    #[test]
+    fn validade_parse_completable(){
+        //Complete comand
+        let partial_parse = CommandParser::parse_completable(&CommandParser::default(),"ope").unwrap();
+        let want = ParsedLine::Completable { instruction: (Instruction::Open), completion: ("n".to_string()) };
+        assert_eq!(partial_parse,want);
+
+        //Comand completed, return space
+        let partial_parse = CommandParser::parse_completable(&CommandParser::default(),"open").unwrap();
+        let want = ParsedLine::Completable { instruction: (Instruction::Open), completion: (" ".to_string()) };
+        assert_eq!(partial_parse,want);
+
+        //Token epmty
+        let partial_parse = CommandParser::parse_completable(&CommandParser::default(),"").unwrap();
+        let want = ParsedLine::Empty;
+        assert_eq!(partial_parse,want);
+
+        //Token space
+        let partial_parse = CommandParser::parse_completable(&CommandParser::default()," ").unwrap();
+        let want = ParsedLine::Empty;
+        assert_eq!(partial_parse,want);
+        
+        //hint cargo.toml
+        let partial_parse = CommandParser::parse_completable(&CommandParser::default(),"open Carg").unwrap();
+        let want = ParsedLine::Completable { instruction: (Instruction::Open), completion: ("o.toml".to_string()) };
+        assert_eq!(partial_parse,want);
+
+        //Invalid
+        let partial_parse = CommandParser::parse_completable(&CommandParser::default(),"Open ").unwrap();
+        let want = ParsedLine::Invalid;
+        assert_eq!(partial_parse,want);
+        
+    }
+}
