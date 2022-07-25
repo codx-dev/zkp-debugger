@@ -246,6 +246,5 @@ mod tests {
         let partial_parse = CommandParser::parse_completable(&CommandParser::default(),"Open ").unwrap();
         let want = ParsedLine::Invalid;
         assert_eq!(partial_parse,want);
-        
     }
 }
