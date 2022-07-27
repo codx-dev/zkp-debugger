@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "dusk-plonk-cdf",
-    "dusk-plonk-debugger-utils",
-    "dusk-plonk-pdb"
+    "cdf",
+    "tcdb",
+    "utils"
 ]

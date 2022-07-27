@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 use std::{fmt, io, iter};
 
-use dusk_plonk_cdf::*;
-use dusk_plonk_debugger_utils::*;
+use dusk_cdf::*;
+use dusk_zkp_debugger_utils::*;
 
 pub fn encode_decode_element<C, E, I, S>(mut elements: I, mut ctx: Context<S>)
 where

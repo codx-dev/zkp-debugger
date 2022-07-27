@@ -1,5 +1,5 @@
 [package]
-name = "dusk-plonk-cdf"
+name = "dusk-cdf"
 version = "0.1.0"
 authors = ["Victor Lopez <victor@codx.io>"]
 edition = "2021"
@@ -7,6 +7,6 @@ readme = "README.md"
 description = "PLONK debugger CDF implementation"
 
 [dev-dependencies]
-dusk-plonk-debugger-utils = { path = "../dusk-plonk-debugger-utils" }
+dusk-zkp-debugger-utils = { path = "../utils" }
 rand = "0.8"
 tempfile = "3.3"

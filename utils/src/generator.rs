@@ -1,6 +1,6 @@
 use std::io;
 
-use dusk_plonk_cdf::*;
+use dusk_cdf::*;
 
 use rand::distributions::Alphanumeric;
 use rand::rngs::StdRng;

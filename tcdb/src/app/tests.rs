@@ -1,6 +1,6 @@
 use super::*;
-use dusk_plonk_cdf::*;
-use dusk_plonk_debugger_utils::*;
+use dusk_cdf::*;
+use dusk_zkp_debugger_utils::*;
 
 impl<S> App<S> {
     fn override_constraint(&mut self, constraint: Constraint) {

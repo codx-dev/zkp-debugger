@@ -9,7 +9,7 @@ use std::path::Path;
 use bat::line_range::LineRanges;
 use bat::PrettyPrinter;
 use crossterm::{cursor, queue, terminal};
-use dusk_plonk_cdf::{CircuitDescription, CircuitDescriptionFile, Constraint, Preamble, Source};
+use dusk_cdf::{CircuitDescription, CircuitDescriptionFile, Constraint, Preamble, Source};
 use prettytable::{cell, format, row, Table};
 
 use super::{Command, CommandParser};
