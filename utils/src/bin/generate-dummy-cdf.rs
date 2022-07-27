@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use dusk_bls12_381::BlsScalar;
 use dusk_bytes::Serializable;
-use dusk_plonk_cdf::*;
+use dusk_cdf::*;
 
 fn main() {
     let output = std::env::var("CDF_OUTPUT").unwrap();

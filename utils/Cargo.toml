@@ -1,5 +1,5 @@
 [package]
-name = "dusk-plonk-debugger-utils"
+name = "dusk-zkp-debugger-utils"
 version = "0.1.0"
 authors = ["Victor Lopez <victor@codx.io>"]
 edition = "2021"
@@ -9,7 +9,7 @@ description = "PLONK debugger utils"
 [dependencies]
 dusk-bls12_381 = { version = "0.10", optional = true }
 dusk-bytes = { version = "0.1", optional = true }
-dusk-plonk-cdf = { path = "../dusk-plonk-cdf" }
+dusk-cdf = { path = "../cdf" }
 rand = "0.8"
 sha256 = "1.0"
 

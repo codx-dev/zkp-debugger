@@ -2,7 +2,7 @@ use std::io;
 
 use clap::Parser;
 use crossterm::{cursor, execute, terminal};
-use dusk_plonk_pdb::*;
+use dusk_tcdb::*;
 use rustyline::error::ReadlineError;
 use rustyline::{Config, Editor};
 
