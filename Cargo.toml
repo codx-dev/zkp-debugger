@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "cdf",
+    "tcdb",
+    "utils"
+]
