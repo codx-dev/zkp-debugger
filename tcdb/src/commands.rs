@@ -212,7 +212,6 @@ fn validate_return_all_instructions() {
 
     assert_eq!(a.len(), b.len());
 }
-
 #[test]
 fn validade_parse_completable() {
     let cases_instructions = vec![
