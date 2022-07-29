@@ -1,20 +1,20 @@
 use super::{Command, CommandParser};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Instruction {
-    Afore,
-    Breakpoint,
-    Continue,
-    Delete,
-    Goto,
-    Help,
-    Next,
-    Open,
-    Print,
-    Restart,
-    Turn,
-    Quit,
-    Witness,
+    Afore = 0x00,
+    Breakpoint = 0x01,
+    Continue = 0x02,
+    Delete = 0x03,
+    Goto = 0x04,
+    Help = 0x05,
+    Next = 0x06,
+    Open = 0x07,
+    Print = 0x08,
+    Restart = 0x09,
+    Turn = 0x0a,
+    Quit = 0x0b,
+    Witness = 0x0c,
 }
 
 impl Instruction {
