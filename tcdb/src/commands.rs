@@ -181,10 +181,6 @@ impl CommandParser {
     }
 }
 
-
-
-
-
 #[test]
 fn validate_return_all_instructions() {
     let flag = 0b1111111111111;
@@ -228,17 +224,18 @@ fn validade_parse_completable() {
 
     let cases_invalid = vec!["Open "];
 
-    let cases_instructions = cases_instructions
-        .into_iter()
-        .map(|(input, completion, instruction)| {
-            (
-                input,
-                ParsedLine::Completable {
-                    instruction,
-                    completion: completion.to_string(),
-                },
-            )
-        });
+    let cases_instructions =
+        cases_instructions
+            .into_iter()
+            .map(|(input, completion, instruction)| {
+                (
+                    input,
+                    ParsedLine::Completable {
+                        instruction,
+                        completion: completion.to_string(),
+                    },
+                )
+            });
 
     let cases_empty = cases_empty
         .into_iter()
@@ -249,10 +246,12 @@ fn validade_parse_completable() {
         .map(|input| (input, ParsedLine::Invalid));
 
     let parser = CommandParser::default();
-    cases_instructions.chain(cases_empty).chain(cases_invalid).for_each(|(input,parsedline)| {
-        let partial_parse = parser.parse_completable(input).unwrap();
+    cases_instructions
+        .chain(cases_empty)
+        .chain(cases_invalid)
+        .for_each(|(input, parsedline)| {
+            let partial_parse = parser.parse_completable(input).unwrap();
 
-        assert_eq!(partial_parse, parsedline);
-    });
-
+            assert_eq!(partial_parse, parsedline);
+        });
 }
