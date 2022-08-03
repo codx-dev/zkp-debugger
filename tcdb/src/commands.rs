@@ -213,7 +213,7 @@ fn validate_return_all_instructions() {
     assert_eq!(a.len(), b.len());
 }
 #[test]
-fn validade_parse_completable() {
+fn validate_parse_completable() {
     let cases_instructions = vec![
         ("ope", "n", Instruction::Open),
         ("open", " ", Instruction::Open),
@@ -254,4 +254,21 @@ fn validade_parse_completable() {
 
             assert_eq!(partial_parse, parsedline);
         });
+}
+
+#[test]
+fn validate_parse() {
+    let parser = CommandParser::default();
+    let cases_error = vec!["aaa", "open "];
+    let cases_ok = vec!["", "quit", "open Cargo.toml"];
+
+    for cases in cases_error.into_iter() {
+        let result_err = parser.parse(cases);
+        assert!(result_err.is_err());
+    }
+
+    for cases in cases_ok.into_iter() {
+        let result_ok = parser.parse(cases);
+        assert!(result_ok.is_ok());
+    }
 }
