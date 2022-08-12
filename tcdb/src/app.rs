@@ -3,8 +3,8 @@ mod tests;
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::io;
 use std::path::Path;
+use std::{io, time};
 
 use bat::line_range::LineRanges;
 use bat::PrettyPrinter;
@@ -24,12 +24,17 @@ pub struct Breakpoint {
 #[derive(Debug, Clone)]
 pub struct Config {
     source_render_margin: usize,
+    theme: &'static str,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
             source_render_margin: 10,
+            theme: match termbg::theme(time::Duration::from_millis(100)) {
+                Ok(termbg::Theme::Light) => "gruvbox-light",
+                _ => "gruvbox-dark",
+            },
         }
     }
 }
@@ -369,6 +374,7 @@ impl<S> App<S> {
             .line_numbers(true)
             .line_ranges(range)
             .highlight(line)
+            .theme(self.config.theme)
             .print()
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
