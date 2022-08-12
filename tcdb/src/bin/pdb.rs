@@ -15,8 +15,12 @@ fn main() {
 
     let mut app = App::default();
 
-    execute!(io::stdout(), terminal::EnterAlternateScreen).expect("failed to load app screen");
-    execute!(io::stdout(), cursor::MoveTo(0, 0)).expect("failed to set cursor");
+    execute!(
+        io::stdout(),
+        terminal::EnterAlternateScreen,
+        cursor::MoveTo(0, 0)
+    )
+    .expect("failed to load app screen");
 
     if let Some(p) = path {
         app.open_path(p).expect("failed to open provided CDF file");
