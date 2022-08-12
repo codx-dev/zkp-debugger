@@ -3,6 +3,8 @@ name = "dusk-cdf"
 version = "0.1.0"
 authors = ["Victor Lopez <victor@codx.io>"]
 edition = "2021"
+license = "MPL-2.0"
+repository = "https://github.com/dusk-network/zkp-debugger"
 readme = "README.md"
 description = "PLONK debugger CDF implementation"
 
