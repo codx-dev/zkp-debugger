@@ -92,7 +92,8 @@ fn continue_and_turn_works() {
         |w| w,
         move |c| {
             let id = c.id();
-            let (qm, ql, qr, qd, qc, qo, pi, a, b, d, o, _) = c.polynomial().internals();
+            let (qm, ql, qr, qd, qc, qo, pi, qarith, qlogic, qvariable_add, a, b, d, o, _) =
+                c.polynomial().internals();
             let poly = Polynomial::new(
                 *qm,
                 *ql,
@@ -101,6 +102,9 @@ fn continue_and_turn_works() {
                 *qc,
                 *qo,
                 *pi,
+                *qarith,
+                *qlogic,
+                *qvariable_add,
                 a.clone(),
                 b.clone(),
                 d.clone(),

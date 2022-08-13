@@ -86,7 +86,9 @@ fn main() {
     let a = IndexedWitness::new(1, None, witnesses[1].value().clone());
     let b = IndexedWitness::new(1, None, witnesses[1].value().clone());
     let o = IndexedWitness::new(5, None, witnesses[5].value().clone());
-    let poly = Polynomial::new(qm, zero, zero, zero, zero, qo, zero, a, b, zero_w, o, true);
+    let poly = Polynomial::new(
+        qm, zero, zero, zero, zero, qo, zero, zero, zero, zero, a, b, zero_w, o, true,
+    );
     let source = Source::new(5, 0, gadgets.clone());
     let constraint = Constraint::new(constraint_id, poly, source);
     constraint_id += 1;
@@ -110,7 +112,9 @@ fn main() {
     let a = IndexedWitness::new(1, None, witnesses[1].value().clone());
     let b = IndexedWitness::new(2, None, witnesses[2].value().clone());
     let o = IndexedWitness::new(6, None, witnesses[6].value().clone());
-    let poly = Polynomial::new(qm, zero, zero, zero, qc, qo, zero, a, b, zero_w, o, true);
+    let poly = Polynomial::new(
+        qm, zero, zero, zero, qc, qo, zero, zero, zero, zero, a, b, zero_w, o, true,
+    );
     let source = Source::new(8, 0, gadgets.clone());
     let constraint = Constraint::new(constraint_id, poly, source);
     constraint_id += 1;
@@ -134,7 +138,9 @@ fn main() {
     let a = IndexedWitness::new(5, None, witnesses[5].value().clone());
     let b = IndexedWitness::new(6, None, witnesses[6].value().clone());
     let o = IndexedWitness::new(7, None, witnesses[7].value().clone());
-    let poly = Polynomial::new(zero, ql, qr, zero, zero, qo, zero, a, b, zero_w, o, true);
+    let poly = Polynomial::new(
+        zero, ql, qr, zero, zero, qo, zero, zero, zero, zero, a, b, zero_w, o, true,
+    );
     let source = Source::new(12, 0, gadgets.clone());
     let constraint = Constraint::new(constraint_id, poly, source);
     constraint_id += 1;
@@ -157,7 +163,9 @@ fn main() {
     let a = IndexedWitness::new(1, None, witnesses[1].value().clone());
     let b = IndexedWitness::new(7, None, witnesses[7].value().clone());
     let o = IndexedWitness::new(8, None, witnesses[8].value().clone());
-    let poly = Polynomial::new(zero, ql, qr, zero, zero, qo, zero, a, b, zero_w, o, true);
+    let poly = Polynomial::new(
+        zero, ql, qr, zero, zero, qo, zero, zero, zero, zero, a, b, zero_w, o, true,
+    );
     let source = Source::new(18, 0, gadgets.clone());
     let constraint = Constraint::new(constraint_id, poly, source);
     constraint_id += 1;
@@ -171,7 +179,7 @@ fn main() {
     let a = IndexedWitness::new(3, None, witnesses[3].value().clone());
     let b = IndexedWitness::new(7, None, witnesses[7].value().clone());
     let poly = Polynomial::new(
-        zero, ql, qr, zero, zero, zero, zero, a, b, zero_w, zero_w, true,
+        zero, ql, qr, zero, zero, zero, zero, zero, zero, zero, a, b, zero_w, zero_w, true,
     );
     let source = Source::new(25, 0, lib.clone());
     let constraint = Constraint::new(constraint_id, poly, source);
@@ -186,7 +194,7 @@ fn main() {
     let a = IndexedWitness::new(4, None, witnesses[4].value().clone());
     let b = IndexedWitness::new(8, None, witnesses[8].value().clone());
     let poly = Polynomial::new(
-        zero, ql, qr, zero, zero, zero, zero, a, b, zero_w, zero_w, true,
+        zero, ql, qr, zero, zero, zero, zero, zero, zero, zero, a, b, zero_w, zero_w, true,
     );
     let source = Source::new(26, 0, lib.clone());
     let constraint = Constraint::new(constraint_id, poly, source);

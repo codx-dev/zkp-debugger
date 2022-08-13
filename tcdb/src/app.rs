@@ -263,7 +263,7 @@ impl<S> App<S> {
     fn print(&self) -> io::Result<()> {
         self.render()?;
 
-        let (qm, ql, qr, qd, qc, qo, pi, a, b, d, o, _re) =
+        let (qm, ql, qr, qd, qc, qo, pi, qarith, qlogic, qvariable_add, a, b, d, o, _re) =
             self.constraint()?.polynomial().internals();
 
         let mut table = Self::table();
@@ -277,6 +277,9 @@ impl<S> App<S> {
         table.add_row(row!["Qc", hex::encode(qc)]);
         table.add_row(row!["Qo", hex::encode(qo)]);
         table.add_row(row!["pi", hex::encode(pi)]);
+        table.add_row(row!["qarith", hex::encode(qarith)]);
+        table.add_row(row!["qlogic", hex::encode(qlogic)]);
+        table.add_row(row!["qvariable_add", hex::encode(qvariable_add)]);
 
         table.printstd();
 

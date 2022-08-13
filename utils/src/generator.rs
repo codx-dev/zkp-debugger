@@ -144,6 +144,9 @@ impl CDFGenerator {
             self.gen_scalar(),
             self.gen_scalar(),
             self.gen_scalar(),
+            self.gen_scalar(),
+            self.gen_scalar(),
+            self.gen_scalar(),
             self.gen_indexed_witness(),
             self.gen_indexed_witness(),
             self.gen_indexed_witness(),
@@ -199,6 +202,9 @@ impl CDFGenerator {
                 let qc = self.gen_scalar();
                 let qo = self.gen_scalar();
                 let pi = self.gen_scalar();
+                let qarith = self.gen_scalar();
+                let qlogic = self.gen_scalar();
+                let qvariable_add = self.gen_scalar();
 
                 let a = self.gen_valid_indexed_witness(&witnesses);
                 let b = self.gen_valid_indexed_witness(&witnesses);
@@ -207,7 +213,23 @@ impl CDFGenerator {
 
                 let re = self.gen();
 
-                let polynomial = Polynomial::new(qm, ql, qr, qd, qc, qo, pi, a, b, d, o, re);
+                let polynomial = Polynomial::new(
+                    qm,
+                    ql,
+                    qr,
+                    qd,
+                    qc,
+                    qo,
+                    pi,
+                    qarith,
+                    qlogic,
+                    qvariable_add,
+                    a,
+                    b,
+                    d,
+                    o,
+                    re,
+                );
 
                 let source = self.gen_source();
 
