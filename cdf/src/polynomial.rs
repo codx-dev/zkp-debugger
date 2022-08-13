@@ -14,6 +14,9 @@ pub struct Polynomial {
     qc: Scalar,
     qo: Scalar,
     pi: Scalar,
+    qarith: Scalar,
+    qlogic: Scalar,
+    qvariable_add: Scalar,
     a: IndexedWitness,
     b: IndexedWitness,
     d: IndexedWitness,
@@ -33,6 +36,9 @@ impl Polynomial {
         qc: Scalar,
         qo: Scalar,
         pi: Scalar,
+        qarith: Scalar,
+        qlogic: Scalar,
+        qvariable_add: Scalar,
         a: IndexedWitness,
         b: IndexedWitness,
         d: IndexedWitness,
@@ -47,6 +53,9 @@ impl Polynomial {
             qc,
             qo,
             pi,
+            qarith,
+            qlogic,
+            qvariable_add,
             a,
             b,
             d,
@@ -73,6 +82,9 @@ impl Polynomial {
         &Scalar,
         &Scalar,
         &Scalar,
+        &Scalar,
+        &Scalar,
+        &Scalar,
         &IndexedWitness,
         &IndexedWitness,
         &IndexedWitness,
@@ -80,8 +92,21 @@ impl Polynomial {
         bool,
     ) {
         (
-            &self.qm, &self.ql, &self.qr, &self.qd, &self.qc, &self.qo, &self.pi, &self.a, &self.b,
-            &self.d, &self.o, self.re,
+            &self.qm,
+            &self.ql,
+            &self.qr,
+            &self.qd,
+            &self.qc,
+            &self.qo,
+            &self.pi,
+            &self.qarith,
+            &self.qlogic,
+            &self.qvariable_add,
+            &self.a,
+            &self.b,
+            &self.d,
+            &self.o,
+            self.re,
         )
     }
 }
@@ -94,7 +119,7 @@ impl Element for Polynomial {
     }
 
     fn len(config: &Self::Config) -> usize {
-        7 * Scalar::len(config) + 4 * IndexedWitness::len(config) + bool::len(&AtomicConfig)
+        10 * Scalar::len(config) + 4 * IndexedWitness::len(config) + bool::len(&AtomicConfig)
     }
 
     fn to_buffer(&self, config: &Self::Config, context: &mut ContextUnit, buf: &mut [u8]) {
@@ -105,6 +130,9 @@ impl Element for Polynomial {
         let buf = self.qc.encode(config, context, buf);
         let buf = self.qo.encode(config, context, buf);
         let buf = self.pi.encode(config, context, buf);
+        let buf = self.qarith.encode(config, context, buf);
+        let buf = self.qlogic.encode(config, context, buf);
+        let buf = self.qvariable_add.encode(config, context, buf);
         let buf = self.a.encode(config, context, buf);
         let buf = self.b.encode(config, context, buf);
         let buf = self.d.encode(config, context, buf);
@@ -130,6 +158,11 @@ impl Element for Polynomial {
         let buf = self.qc.try_decode_in_place(config, context, buf)?;
         let buf = self.qo.try_decode_in_place(config, context, buf)?;
         let buf = self.pi.try_decode_in_place(config, context, buf)?;
+        let buf = self.qarith.try_decode_in_place(config, context, buf)?;
+        let buf = self.qlogic.try_decode_in_place(config, context, buf)?;
+        let buf = self
+            .qvariable_add
+            .try_decode_in_place(config, context, buf)?;
         let buf = self.a.try_decode_in_place(config, context, buf)?;
         let buf = self.b.try_decode_in_place(config, context, buf)?;
         let buf = self.d.try_decode_in_place(config, context, buf)?;
@@ -147,6 +180,9 @@ impl Element for Polynomial {
         self.qc.validate(preamble)?;
         self.qo.validate(preamble)?;
         self.pi.validate(preamble)?;
+        self.qarith.validate(preamble)?;
+        self.qlogic.validate(preamble)?;
+        self.qvariable_add.validate(preamble)?;
         self.a.validate(preamble)?;
         self.b.validate(preamble)?;
         self.d.validate(preamble)?;
