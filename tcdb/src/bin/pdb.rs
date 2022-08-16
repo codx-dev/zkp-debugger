@@ -4,7 +4,7 @@ use clap::Parser;
 use crossterm::{cursor, execute, terminal};
 use dusk_tcdb::*;
 use rustyline::error::ReadlineError;
-use rustyline::{Config, Editor};
+use rustyline::{Config as RustylineConfig, Editor};
 
 fn main() {
     let ParsedArgs {
@@ -13,7 +13,7 @@ fn main() {
         ..
     } = Args::parse().resolve().expect("failed to resolve cli args");
 
-    let mut app = App::default();
+    let mut app = App::load().expect("failed to load app");
 
     execute!(
         io::stdout(),
@@ -26,7 +26,7 @@ fn main() {
         app.open_path(p).expect("failed to open provided CDF file");
     }
 
-    let config = Config::builder()
+    let config = RustylineConfig::builder()
         .auto_add_history(true)
         .max_history_size(500)
         .build();

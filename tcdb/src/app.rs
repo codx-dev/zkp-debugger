@@ -9,8 +9,11 @@ use std::{io, time};
 use bat::line_range::LineRanges;
 use bat::PrettyPrinter;
 use crossterm::{cursor, queue, terminal};
-use dusk_cdf::{CircuitDescription, CircuitDescriptionFile, Constraint, Preamble, Source};
+use dusk_cdf::{
+    BaseConfig, CircuitDescription, CircuitDescriptionFile, Constraint, Preamble, Source,
+};
 use prettytable::{cell, format, row, Table};
+use serde::{Deserialize, Serialize};
 
 use super::{Command, CommandParser};
 
@@ -21,10 +24,10 @@ pub struct Breakpoint {
 }
 
 /// App configuration
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     source_render_margin: usize,
-    theme: &'static str,
+    theme: String,
 }
 
 impl Default for Config {
@@ -34,9 +37,14 @@ impl Default for Config {
             theme: match termbg::theme(time::Duration::from_millis(100)) {
                 Ok(termbg::Theme::Light) => "gruvbox-light",
                 _ => "gruvbox-dark",
-            },
+            }
+            .to_string(),
         }
     }
+}
+
+impl BaseConfig for Config {
+    const PACKAGE: &'static str = env!("CARGO_PKG_NAME");
 }
 
 /// PDB App implementation
@@ -71,6 +79,24 @@ impl<S> Default for App<S> {
 }
 
 impl App<File> {
+    /// Load a new instance of the app
+    pub fn load() -> io::Result<Self> {
+        let config = Config::load()?;
+
+        Ok(Self {
+            config,
+            parser: CommandParser::default(),
+            breakpoints: HashMap::default(),
+            next_breakpoint: u64::default(),
+            cdf: None,
+            constraint: None,
+            preamble: Preamble::default(),
+            is_last_constraint_ok: bool::default(),
+            last_constraint: usize::default(),
+            finished: bool::default(),
+        })
+    }
+
     /// Open a CDF file
     pub fn open_path<P>(&mut self, path: P) -> io::Result<()>
     where
@@ -377,7 +403,7 @@ impl<S> App<S> {
             .line_numbers(true)
             .line_ranges(range)
             .highlight(line)
-            .theme(self.config.theme)
+            .theme(&self.config.theme)
             .print()
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 

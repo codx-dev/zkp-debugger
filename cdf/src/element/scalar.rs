@@ -97,12 +97,12 @@ fn bytes_encode_works() {
 
 #[test]
 fn encode_zeroed_len_is_consitent() {
-    let config = *Config::new().with_zeroed_scalar_values(false);
+    let config = *Config::default().with_zeroed_scalar_values(false);
     let len = <Scalar as Element>::len(&config);
 
     assert_eq!(Scalar::LEN, len);
 
-    let config = *Config::new().with_zeroed_scalar_values(true);
+    let config = *Config::default().with_zeroed_scalar_values(true);
     let len = <Scalar as Element>::len(&config);
 
     assert_eq!(0, len);

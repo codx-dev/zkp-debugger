@@ -36,7 +36,7 @@ use std::io;
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
 
-pub use config::{AtomicConfig, Config};
+pub use config::{AtomicConfig, BaseConfig, Config};
 pub use constraint::Constraint;
 pub use context::{Context, ContextUnit};
 pub use element::{Element, FixedText, Scalar};

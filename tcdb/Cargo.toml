@@ -10,14 +10,16 @@ description = "PLONK debugger CDF implementation"
 bat = "0.21"
 clap = { version = "3.2", features = ["derive"] }
 crossterm = "0.24"
-dusk-cdf = { path = "../cdf" }
 dirs = "4.0"
+dusk-cdf = { path = "../cdf" }
 hex = "0.4"
 prettytable-rs = "0.8"
 rustyline = "9.1"
 rustyline-derive = "0.6"
+serde = { version = "1.0", features = ["derive"] }
 shellwords = "1.1"
 termbg = "0.4"
+toml = "0.5"
 
 [dev-dependencies]
 dusk-zkp-debugger-utils = { path = "../utils" }

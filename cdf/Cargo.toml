@@ -8,6 +8,11 @@ repository = "https://github.com/dusk-network/zkp-debugger"
 readme = "README.md"
 description = "PLONK debugger CDF implementation"
 
+[dependencies]
+dirs = "4.0"
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.5"
+
 [dev-dependencies]
 dusk-zkp-debugger-utils = { path = "../utils" }
 rand = "0.8"
