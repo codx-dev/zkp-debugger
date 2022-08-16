@@ -343,3 +343,8 @@ fn try_from_buffer_in_place_works_with_some() {
 
     assert_eq!(val, val_p);
 }
+
+#[test]
+fn config_load_wont_panic() {
+    Config::load().ok();
+}

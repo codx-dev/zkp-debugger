@@ -136,3 +136,8 @@ fn continue_and_turn_works() {
     app.turn().expect("failed to turn");
     assert_eq!(0, app.last_constraint());
 }
+
+#[test]
+fn load_wont_panic() {
+    App::load().ok();
+}
