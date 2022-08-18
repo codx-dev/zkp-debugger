@@ -21,14 +21,14 @@ pub enum Command {
     /// Delete a breakpoint
     Delete {
         /// Id of the breakpoint
-        id: u64,
+        id: usize,
     },
     /// Empty command
     Empty,
     /// Jump to a constraint
     Goto {
         /// Id of the constraint
-        id: u64,
+        id: usize,
     },
     /// Print the help menu
     Help,
@@ -50,7 +50,7 @@ pub enum Command {
     /// Print information about a witness
     Witness {
         /// Id of the witness
-        id: u64,
+        id: usize,
     },
 }
 
@@ -87,15 +87,15 @@ impl Command {
                 Ok(Self::Breakpoint { source, line })
             }
 
-            Instruction::Delete => u64::from_str(arg)
+            Instruction::Delete => usize::from_str(arg)
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))
                 .map(|id| Self::Delete { id }),
 
-            Instruction::Goto => u64::from_str(arg)
+            Instruction::Goto => usize::from_str(arg)
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))
                 .map(|id| Self::Goto { id }),
 
-            Instruction::Witness => u64::from_str(arg)
+            Instruction::Witness => usize::from_str(arg)
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))
                 .map(|id| Self::Witness { id }),
 

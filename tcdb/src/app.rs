@@ -1,145 +1,98 @@
-/*
-use std::collections::HashMap;
-use std::fs::File;
-use std::path::Path;
-use std::{io, time};
+mod breakpoint;
+mod config;
+mod state;
 
-use bat::line_range::LineRanges;
+use std::fs::File;
+use std::io;
+use std::path::Path;
+
+use bat::line_range::{LineRange, LineRanges};
 use bat::PrettyPrinter;
 use crossterm::{cursor, queue, terminal};
-use dusk_cdf::{BaseConfig, CircuitDescription, Constraint, Preamble};
+use dusk_cdf::{BaseConfig, CircuitDescription, Constraint, Witness};
 use prettytable::{cell, format, row, Table};
-use serde::{Deserialize, Serialize};
 
-use super::{Command, CommandParser};
+use crate::{Command, CommandParser, ParsedArgs};
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
-pub struct Breakpoint {
-    source: String,
-    line: Option<u64>,
-}
+pub use config::Config;
+pub use state::State;
 
-/// App configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Config {
-    source_render_margin: usize,
-    theme: String,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            source_render_margin: 10,
-            theme: match termbg::theme(time::Duration::from_millis(100)) {
-                Ok(termbg::Theme::Light) => "gruvbox-light",
-                _ => "gruvbox-dark",
-            }
-            .to_string(),
-        }
-    }
-}
-
-impl BaseConfig for Config {
-    const PACKAGE: &'static str = env!("CARGO_PKG_NAME");
-}
+use breakpoint::Breakpoints;
 
 /// PDB App implementation
 pub struct App<S> {
     config: Config,
-    parser: CommandParser,
-    breakpoints: HashMap<u64, Breakpoint>,
-    next_breakpoint: u64,
     cdf: Option<CircuitDescription<S>>,
     constraint: Option<usize>,
-    preamble: Preamble,
-    is_last_constraint_ok: bool,
-    last_constraint: usize,
-    finished: bool,
-}
-
-impl<S> Default for App<S> {
-    fn default() -> Self {
-        Self {
-            config: Config::default(),
-            parser: CommandParser::default(),
-            breakpoints: HashMap::default(),
-            next_breakpoint: u64::default(),
-            cdf: None,
-            constraint: None,
-            preamble: Preamble::default(),
-            is_last_constraint_ok: bool::default(),
-            last_constraint: usize::default(),
-            finished: bool::default(),
-        }
-    }
+    parser: CommandParser,
+    breakpoints: Breakpoints,
 }
 
 impl App<File> {
     /// Load a new instance of the app
-    pub fn load() -> io::Result<Self> {
+    pub fn load(args: ParsedArgs) -> io::Result<Self> {
         let config = Config::load()?;
 
-        Ok(Self {
+        let mut app = Self {
             config,
-            parser: CommandParser::default(),
-            breakpoints: HashMap::default(),
-            next_breakpoint: u64::default(),
             cdf: None,
             constraint: None,
-            preamble: Preamble::default(),
-            is_last_constraint_ok: bool::default(),
-            last_constraint: usize::default(),
-            finished: bool::default(),
-        })
+            parser: CommandParser::default(),
+            breakpoints: Breakpoints::default(),
+        };
+
+        let ParsedArgs { path } = args;
+
+        if let Some(path) = path {
+            app.open(path)?;
+        }
+
+        Ok(app)
     }
 
-    /*
     /// Open a CDF file
-    pub fn open_path<P>(&mut self, path: P) -> io::Result<()>
+    pub fn open<P>(&mut self, path: P) -> io::Result<()>
     where
         P: AsRef<Path>,
     {
-        CircuitDescriptionFile::open(path)
-            .and_then(|cdf| self.set_cdf(cdf))
-            .and_then(|_| self.restart())
-            .and_then(|_| self.render())
+        CircuitDescription::open(path).and_then(|cdf| self.set_cdf(cdf))
     }
 
     /// Attempt to execute a given command
     pub fn execute(&mut self, command: Command) -> io::Result<State> {
         match command {
-            Command::Afore => self.afore().and_then(|_| self.render())?,
+            Command::Afore => self.afore()?,
 
             Command::Breakpoint { source, line } => {
-                self.add_breakpoint(source, line);
+                self.add_breakpoint(source, line)?;
             }
 
-            Command::Continue => self.cont().and_then(|_| self.render())?,
+            Command::Continue => self.cont()?,
 
             Command::Delete { id } => {
                 self.delete_breakpoint(id);
             }
 
-            Command::Help => self.help(),
-
             Command::Empty => (),
 
-            Command::Goto { id } => self.goto(id).and_then(|_| self.render())?,
+            Command::Goto { id } => self.goto(id)?,
 
-            Command::Next => self.next().and_then(|_| self.render())?,
+            Command::Help => self.help(),
 
-            Command::Open { path } => self.open_path(path).and_then(|_| self.render())?,
+            Command::Next => self.next()?,
+
+            Command::Open { path } => self.open(path)?,
 
             Command::Print => self.print()?,
-
-            Command::Restart => self.restart().and_then(|_| self.render())?,
-
-            Command::Turn => self.turn().and_then(|_| self.render())?,
 
             Command::Quit => {
                 println!("bye!");
                 return Ok(State::ShouldQuit);
             }
+
+            Command::Restart => self.goto(0)?,
+
+            Command::Turn => self.turn()?,
 
             Command::Witness { id } => self.witness(id)?,
         }
@@ -151,135 +104,346 @@ impl App<File> {
     pub fn parse_and_execute(&mut self, line: &str) -> io::Result<State> {
         self.parser.parse(line).and_then(|c| self.execute(c))
     }
-    */
 }
 
-/*
 impl<S> App<S>
 where
     S: io::Read + io::Seek,
 {
-    fn set_cdf(&mut self, cdf: CircuitDescription<S>) -> io::Result<()> {
-        self.preamble = *cdf.preamble();
-        self.cdf.replace(cdf);
-
-        self.restart()
+    fn cdf(&self) -> io::Result<&CircuitDescription<S>> {
+        self.cdf
+            .as_ref()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "CDF file not loaded!"))
     }
 
-    fn jump(&mut self, constraint: usize) -> io::Result<()> {
-        let constraint = self
-            .cdf_mut()
-            .and_then(|cdf| cdf.fetch_constraint(constraint))?;
+    fn cdf_mut(&mut self) -> io::Result<(&Config, &Breakpoints, &mut CircuitDescription<S>)> {
+        let Self {
+            config,
+            cdf,
+            breakpoints,
+            ..
+        } = self;
 
-        self.last_constraint = constraint.id() as usize;
-        self.is_last_constraint_ok = constraint.is_ok();
-        self.finished =
-            self.last_constraint == self.preamble.constraints.saturating_sub(1) as usize;
-        self.constraint.replace(constraint);
+        let cdf = cdf
+            .as_mut()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "CDF file not loaded!"))?;
+
+        Ok((config, breakpoints, cdf))
+    }
+
+    fn fetch_constraint(&mut self, idx: usize) -> io::Result<(&Config, &Breakpoints, Constraint)> {
+        let (config, breakpoints, cdf) = self.cdf_mut()?;
+        let constraint = cdf.fetch_constraint(idx)?;
+
+        Ok((config, breakpoints, constraint))
+    }
+
+    fn fetch_witness(&mut self, idx: usize) -> io::Result<(&Config, Witness)> {
+        let (config, _, cdf) = self.cdf_mut()?;
+        let witness = cdf.fetch_witness(idx)?;
+
+        Ok((config, witness))
+    }
+
+    fn goto(&mut self, idx: usize) -> io::Result<()> {
+        let (config, _, constraint) = self.fetch_constraint(idx)?;
+
+        Self::render_constraint(config, constraint)?;
+
+        self.constraint.replace(idx);
 
         Ok(())
     }
 
-    fn goto(&mut self, id: u64) -> io::Result<()> {
-        self.jump(id as usize)
-    }
-
-    fn jump_one(&mut self) -> io::Result<()> {
-        self.jump(self.last_constraint.saturating_add(1))
-    }
-
-    fn cont(&mut self) -> io::Result<()> {
-        loop {
-            self.jump_one()?;
-
-            if self.should_interrupt() {
-                return Ok(());
-            }
-        }
-    }
-
-    fn jump_previous(&mut self) -> io::Result<()> {
-        self.jump(self.last_constraint.saturating_sub(1))
-    }
-
-    fn afore(&mut self) -> io::Result<()> {
-        self.jump_previous()
-    }
-
-    fn next(&mut self) -> io::Result<()> {
-        self.jump(self.last_constraint.saturating_add(1))
-    }
-
-    fn restart(&mut self) -> io::Result<()> {
+    fn set_cdf(&mut self, cdf: CircuitDescription<S>) -> io::Result<()> {
         self.constraint.take();
-        self.finished = false;
-        self.last_constraint = 0;
-        self.is_last_constraint_ok = true;
-
-        self.jump(0)
+        self.cdf.replace(cdf);
+        self.goto(0)
     }
 
-    fn turn(&mut self) -> io::Result<()> {
-        loop {
-            self.jump_previous()?;
+    fn add_breakpoint(&mut self, source: String, line: Option<u64>) -> io::Result<()> {
+        if !self.cdf()?.source_name_contains(&source) {
+            println!("the provided name doesn't match to a constraint in the current cdf file!");
 
-            if self.last_constraint == 0 || self.should_interrupt() {
+            return Ok(());
+        }
+
+        let id = self.breakpoints.add(source, line);
+
+        println!("breakpoint added: #{}", id);
+
+        Ok(())
+    }
+
+    fn print(&mut self) -> io::Result<()> {
+        let idx = match self.constraint {
+            Some(idx) => idx,
+            None => {
+                println!("no constraint loaded!");
                 return Ok(());
             }
-        }
-    }
-
-    fn witness(&mut self, id: u64) -> io::Result<()> {
-        let witness = self.cdf_mut()?.fetch_witness(id as usize)?;
+        };
 
         let mut table = Self::table();
 
-        table.set_titles(row!["id", "value"]);
-        table.add_row(row![
-            format!("{}", witness.id()),
-            hex::encode(witness.value())
-        ]);
+        table.set_titles(row!["item", "value"]);
+
+        let (_, _, constraint) = self.fetch_constraint(idx)?;
+
+        let selectors = constraint.polynomial().selectors;
+        let evaluation = constraint.polynomial().evaluation;
+
+        table.add_row(row!["Qm", hex::encode(selectors.qm)]);
+        table.add_row(row!["Ql", hex::encode(selectors.ql)]);
+        table.add_row(row!["Qr", hex::encode(selectors.qr)]);
+        table.add_row(row!["Qd", hex::encode(selectors.qd)]);
+        table.add_row(row!["Qc", hex::encode(selectors.qc)]);
+        table.add_row(row!["Qo", hex::encode(selectors.qo)]);
+        table.add_row(row!["PI", hex::encode(selectors.pi)]);
+        table.add_row(row!["Qarith", hex::encode(selectors.qarith)]);
+        table.add_row(row!["Qlogic", hex::encode(selectors.qlogic)]);
+        table.add_row(row!["QRange", hex::encode(selectors.qrange)]);
+        table.add_row(row!["QGVar", hex::encode(selectors.qgroup_variable)]);
+        table.add_row(row!["QGFix", hex::encode(selectors.qfixed_add)]);
+
         table.printstd();
 
-        self.render_source(witness.source())?;
+        let witnesses = constraint.polynomial().witnesses;
+
+        let mut table = Self::table();
+
+        table.set_titles(row!["id", "index", "value"]);
+
+        let a = hex::encode(self.fetch_witness(witnesses.a)?.1.value());
+        let b = hex::encode(self.fetch_witness(witnesses.b)?.1.value());
+        let d = hex::encode(self.fetch_witness(witnesses.d)?.1.value());
+        let o = hex::encode(self.fetch_witness(witnesses.o)?.1.value());
+
+        table.add_row(row![format!("{}", witnesses.a), "a", a]);
+        table.add_row(row![format!("{}", witnesses.b), "b", b]);
+        table.add_row(row![format!("{}", witnesses.d), "d", d]);
+        table.add_row(row![format!("{}", witnesses.o), "o", o]);
+
+        table.printstd();
+
+        println!("evaluation: {}", if evaluation { "ok" } else { "error" });
 
         Ok(())
     }
+
+    fn witness(&mut self, id: usize) -> io::Result<()> {
+        let (config, witness) = self.fetch_witness(id)?;
+
+        Self::render_witness(config, witness)
+    }
+
+    fn next(&mut self) -> io::Result<()> {
+        let mut idx = match self.constraint {
+            Some(idx) => idx,
+            None => {
+                println!("no constraint loaded!");
+                return Ok(());
+            }
+        };
+
+        let constraints = self.cdf()?.preamble().constraints;
+        if idx >= constraints.saturating_sub(1) {
+            println!("execution finished");
+            return Ok(());
+        }
+
+        let (_, _, constraint) = self.fetch_constraint(idx)?;
+
+        let mut name = constraint.name().to_owned();
+        let mut line = constraint.line();
+
+        loop {
+            if idx >= constraints.saturating_sub(1) {
+                println!("execution finished");
+                idx = constraints.saturating_sub(1);
+                break;
+            }
+
+            let (_, _, constraint) = self.fetch_constraint(idx)?;
+
+            if name != constraint.name()
+                || line != constraint.line()
+                || !constraint.polynomial().evaluation
+            {
+                break;
+            }
+
+            idx += 1;
+            name = constraint.name().to_owned();
+            line = constraint.line();
+        }
+
+        self.goto(idx)
+    }
+
+    fn cont(&mut self) -> io::Result<()> {
+        let mut idx = match self.constraint {
+            Some(idx) => idx,
+            None => {
+                println!("no constraint loaded!");
+                return Ok(());
+            }
+        };
+
+        let constraints = self.cdf()?.preamble().constraints;
+        if idx >= constraints.saturating_sub(1) {
+            println!("execution finished");
+            return Ok(());
+        }
+
+        loop {
+            if idx >= constraints.saturating_sub(1) {
+                println!("execution finished");
+                idx = constraints.saturating_sub(1);
+                break;
+            }
+
+            let (_, breakpoints, constraint) = self.fetch_constraint(idx)?;
+
+            if !constraint.polynomial().evaluation
+                || breakpoints.is_breakpoint(constraint.name(), constraint.line())
+            {
+                break;
+            }
+
+            idx += 1;
+        }
+
+        self.goto(idx)
+    }
+
+    fn afore(&mut self) -> io::Result<()> {
+        let mut idx = match self.constraint {
+            Some(idx) => idx,
+            None => {
+                println!("no constraint loaded!");
+                return Ok(());
+            }
+        };
+
+        if idx == 0 {
+            println!("beginning of file");
+            return Ok(());
+        }
+
+        let (_, _, constraint) = self.fetch_constraint(idx)?;
+
+        let mut name = constraint.name().to_owned();
+        let mut line = constraint.line();
+
+        loop {
+            if idx == 0 {
+                println!("beginning of file");
+                break;
+            }
+
+            let (_, _, constraint) = self.fetch_constraint(idx)?;
+
+            if name != constraint.name()
+                || line != constraint.line()
+                || !constraint.polynomial().evaluation
+            {
+                break;
+            }
+
+            idx = idx.saturating_sub(1);
+            name = constraint.name().to_owned();
+            line = constraint.line();
+        }
+
+        self.goto(idx)
+    }
+
+    fn turn(&mut self) -> io::Result<()> {
+        let mut idx = match self.constraint {
+            Some(idx) => idx,
+            None => {
+                println!("no constraint loaded!");
+                return Ok(());
+            }
+        };
+
+        loop {
+            if idx == 0 {
+                println!("beginning of file");
+                break;
+            }
+
+            let (_, breakpoints, constraint) = self.fetch_constraint(idx)?;
+
+            if !constraint.polynomial().evaluation
+                || breakpoints.is_breakpoint(constraint.name(), constraint.line())
+            {
+                break;
+            }
+
+            idx = idx.saturating_sub(1);
+        }
+
+        self.goto(idx)
+    }
 }
-*/
 
 impl<S> App<S> {
-    /*
-    fn add_breakpoint(&mut self, source: String, line: Option<u64>) -> u64 {
-        let id = self.next_breakpoint;
-
-        self.breakpoints.insert(id, Breakpoint { source, line });
-
-        println!("breakpoint added: #{}", self.next_breakpoint);
-
-        self.next_breakpoint += 1;
-
-        id
+    /// App configuration file
+    pub const fn config(&self) -> &Config {
+        &self.config
     }
 
-    fn cdf_mut(&mut self) -> io::Result<&mut CircuitDescription<S>> {
-        self.cdf
-            .as_mut()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "failed to load CDF file"))
+    fn render(config: &Config, name: &str, contents: &str, line: usize) -> io::Result<()> {
+        println!("{}", name);
+
+        let margin = config.render.margin;
+        let range = LineRanges::from(vec![LineRange::new(
+            line.saturating_sub(margin),
+            line.saturating_add(margin),
+        )]);
+
+        PrettyPrinter::new()
+            .input_from_bytes(contents.as_bytes())
+            .language("rust")
+            .header(config.render.header)
+            .grid(config.render.grid)
+            .line_numbers(config.render.line_numbers)
+            .line_ranges(range)
+            .highlight(line)
+            .theme(&config.render.theme)
+            .print()
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+
+        Ok(())
     }
 
-    fn constraint(&self) -> io::Result<&Constraint> {
-        self.constraint
-            .as_ref()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "failed to fetch constraint"))
-            .and_then(|id| self.)
+    fn render_constraint(config: &Config, constraint: Constraint) -> io::Result<()> {
+        queue!(
+            io::stdout(),
+            terminal::Clear(terminal::ClearType::All),
+            cursor::MoveTo(1, 1)
+        )?;
+
+        let name = constraint.name();
+        let contents = constraint.contents();
+        let line = constraint.line() as usize;
+
+        Self::render(config, name, contents, line)
     }
 
-    fn delete_breakpoint(&mut self, id: u64) {
-        match self.breakpoints.remove(&id) {
-            Some(_) => println!("breakpoint #{} removed", id),
-            None => println!("breakpoint #{} not found", id),
-        }
+    fn render_witness(config: &Config, witness: Witness) -> io::Result<()> {
+        let name = witness.name();
+        let contents = witness.contents();
+        let line = witness.line() as usize;
+
+        Self::render(config, name, contents, line)
+    }
+
+    /// Underlying parser of the app
+    pub fn parser(&self) -> &CommandParser {
+        &self.parser
     }
 
     fn help(&self) {
@@ -288,41 +452,11 @@ impl<S> App<S> {
         });
     }
 
-    fn print(&self) -> io::Result<()> {
-        self.render()?;
-
-        let (qm, ql, qr, qd, qc, qo, pi, qarith, qlogic, qvariable_add, a, b, d, o, _re) =
-            self.constraint()?.polynomial().internals();
-
-        let mut table = Self::table();
-
-        table.set_titles(row!["selector", "value"]);
-
-        table.add_row(row!["Qm", hex::encode(qm)]);
-        table.add_row(row!["Ql", hex::encode(ql)]);
-        table.add_row(row!["Qr", hex::encode(qr)]);
-        table.add_row(row!["Qd", hex::encode(qd)]);
-        table.add_row(row!["Qc", hex::encode(qc)]);
-        table.add_row(row!["Qo", hex::encode(qo)]);
-        table.add_row(row!["pi", hex::encode(pi)]);
-        table.add_row(row!["qarith", hex::encode(qarith)]);
-        table.add_row(row!["qlogic", hex::encode(qlogic)]);
-        table.add_row(row!["qvariable_add", hex::encode(qvariable_add)]);
-
-        table.printstd();
-
-        let mut table = Self::table();
-
-        table.set_titles(row!["id", "index", "value"]);
-
-        table.add_row(row![format!("{}", a.index()), "a", hex::encode(a.value())]);
-        table.add_row(row![format!("{}", b.index()), "b", hex::encode(b.value())]);
-        table.add_row(row![format!("{}", d.index()), "d", hex::encode(d.value())]);
-        table.add_row(row![format!("{}", o.index()), "o", hex::encode(o.value())]);
-
-        table.printstd();
-
-        Ok(())
+    fn delete_breakpoint(&mut self, id: usize) {
+        match self.breakpoints.remove(id) {
+            Some(b) => println!("breakpoint #{} removed: {:?}", id, b),
+            None => println!("breakpoint #{} not found", id),
+        }
     }
 
     fn table() -> Table {
@@ -342,95 +476,4 @@ impl<S> App<S> {
 
         table
     }
-
-    fn is_breakpoint(&self) -> bool {
-        self.constraint
-            .as_ref()
-            .map(|constraint| constraint.source())
-            .map(|source| {
-                self.breakpoints.values().any(|b| {
-                    source.path().contains(&b.source)
-                        && b.line.map(|line| line == source.line()).unwrap_or(true)
-                })
-            })
-            .unwrap_or(false)
-    }
-
-    /// Underlying parser of the app
-    pub fn parser(&self) -> &CommandParser {
-        &self.parser
-    }
-
-    fn render(&self) -> io::Result<()> {
-        self.constraint
-            .as_ref()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "undefined constraint"))
-            .and_then(|c| {
-                queue!(
-                    io::stdout(),
-                    terminal::Clear(terminal::ClearType::All),
-                    cursor::MoveTo(1, 1)
-                )?;
-
-                self.render_source(c.source())?;
-
-                println!("evaluation: {}", c.is_ok());
-
-                if self.finished {
-                    println!("execution finished");
-                }
-
-                Ok(())
-            })
-    }
-
-    fn render_source(&self, source: &Source) -> io::Result<()> {
-        let path = source.canonical_path()?;
-
-        println!("{}", path.display());
-
-        let margin = self.config.source_render_margin;
-
-        let line = source.line() as usize;
-        let range = LineRanges::from(vec![bat::line_range::LineRange::new(
-            line.saturating_sub(margin),
-            line.saturating_add(margin),
-        )]);
-
-        PrettyPrinter::new()
-            .input_file(path)
-            .language("rust")
-            .header(true)
-            .grid(true)
-            .line_numbers(true)
-            .line_ranges(range)
-            .highlight(line)
-            .theme(&self.config.theme)
-            .print()
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-
-        Ok(())
-    }
-
-    fn should_interrupt(&self) -> bool {
-        self.finished || !self.is_last_constraint_ok || self.is_breakpoint()
-    }
-    */
 }
-
-/// Resulting state of an executed command
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum State {
-    /// Application should continue
-    Continue,
-    /// Application should quit
-    ShouldQuit,
-}
-
-impl State {
-    /// Check if the application should continue executing, given a state
-    pub const fn should_continue(&self) -> bool {
-        matches!(self, Self::Continue)
-    }
-}
-*/
