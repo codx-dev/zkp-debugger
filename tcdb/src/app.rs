@@ -61,7 +61,7 @@ impl App<File> {
     /// Attempt to execute a given command
     pub fn execute(&mut self, command: Command) -> io::Result<State> {
         match command {
-            Command::Afore => self.afore()?,
+            Command::Afore => self.afore(true)?,
 
             Command::Breakpoint { source, line } => {
                 self.add_breakpoint(source, line)?;
@@ -75,11 +75,11 @@ impl App<File> {
 
             Command::Empty => (),
 
-            Command::Goto { id } => self.goto(id)?,
+            Command::Goto { id } => self.goto(id, true)?,
 
             Command::Help => self.help(),
 
-            Command::Next => self.next()?,
+            Command::Next => self.next(true)?,
 
             Command::Open { path } => self.open(path)?,
 
@@ -90,7 +90,7 @@ impl App<File> {
                 return Ok(State::ShouldQuit);
             }
 
-            Command::Restart => self.goto(0)?,
+            Command::Restart => self.goto(0, true)?,
 
             Command::Turn => self.turn()?,
 
@@ -145,10 +145,12 @@ where
         Ok((config, witness))
     }
 
-    fn goto(&mut self, idx: usize) -> io::Result<()> {
+    fn goto(&mut self, idx: usize, print: bool) -> io::Result<()> {
         let (config, _, constraint) = self.fetch_constraint(idx)?;
 
-        Self::render_constraint(config, constraint)?;
+        if print {
+            Self::render_constraint(config, constraint)?;
+        }
 
         self.constraint.replace(idx);
 
@@ -158,7 +160,7 @@ where
     fn set_cdf(&mut self, cdf: CircuitDescription<S>) -> io::Result<()> {
         self.constraint.take();
         self.cdf.replace(cdf);
-        self.goto(0)
+        self.goto(0, true)
     }
 
     fn add_breakpoint(&mut self, source: String, line: Option<u64>) -> io::Result<()> {
@@ -237,7 +239,7 @@ where
         Self::render_witness(config, witness)
     }
 
-    fn next(&mut self) -> io::Result<()> {
+    fn next(&mut self, print: bool) -> io::Result<()> {
         let mut idx = match self.constraint {
             Some(idx) => idx,
             None => {
@@ -278,10 +280,12 @@ where
             line = constraint.line();
         }
 
-        self.goto(idx)
+        self.goto(idx, print)
     }
 
     fn cont(&mut self) -> io::Result<()> {
+        self.next(false)?;
+
         let mut idx = match self.constraint {
             Some(idx) => idx,
             None => {
@@ -314,10 +318,10 @@ where
             idx += 1;
         }
 
-        self.goto(idx)
+        self.goto(idx, true)
     }
 
-    fn afore(&mut self) -> io::Result<()> {
+    fn afore(&mut self, print: bool) -> io::Result<()> {
         let mut idx = match self.constraint {
             Some(idx) => idx,
             None => {
@@ -356,10 +360,12 @@ where
             line = constraint.line();
         }
 
-        self.goto(idx)
+        self.goto(idx, print)
     }
 
     fn turn(&mut self) -> io::Result<()> {
+        self.afore(false)?;
+
         let mut idx = match self.constraint {
             Some(idx) => idx,
             None => {
@@ -385,7 +391,7 @@ where
             idx = idx.saturating_sub(1);
         }
 
-        self.goto(idx)
+        self.goto(idx, true)
     }
 }
 

@@ -35,14 +35,13 @@ fn main() {
 
     if let Some(h) = &history {
         if !h.exists() {
-            fs::OpenOptions::new()
-                .create_new(true)
-                .open(h)
-                .expect("failed to create commands history file");
+            fs::OpenOptions::new().create_new(true).open(h).ok();
         }
 
-        if let Err(e) = rl.load_history(h) {
-            eprintln!("failed to load commands history: {}", e);
+        if h.exists() {
+            if let Err(e) = rl.load_history(h) {
+                eprintln!("failed to load commands history: {}", e);
+            }
         }
     }
 
