@@ -1,6 +1,9 @@
 mod impls;
 mod scalar;
 
+#[cfg(test)]
+mod tests;
+
 use std::io;
 
 use crate::{Config, DecoderContext, EncoderContext, Preamble};
@@ -14,7 +17,7 @@ pub trait EncodableElement: Element {
     /// # Panics
     ///
     /// The buffer must, provided a correct definition of [`Element::len`], contain enough bytes to
-    /// fully serialize the type. This can be checkedvia [`Element::validate_buffer_len`].
+    /// fully serialize the type. This can be checked via [`Element::validate_buffer`].
     fn to_buffer(&self, ctx: &mut EncoderContext, buf: &mut [u8]);
 
     /// Serialize the object into a bytes array.

@@ -12,9 +12,6 @@
 //! allow computation in the constraint system. It will evaluate to a [`bool`] that is the
 //! representation of the result of the gate.
 //!
-//! Every item of a circuit description contains a mapping to the [`Source`] file that generated it.
-//! This will allow the debugger to map the constraint to its original Rust source code.
-//!
 //! A circuit description format file will contain a preamble with all its witnesses. Provided
 //! this, its witness index will reflect its line on the file, facilitating indexing.
 
@@ -30,8 +27,8 @@ mod witness;
 
 pub use config::{BaseConfig, Config};
 pub use constraint::{Constraint, EncodableConstraint};
-pub use decoder::CircuitDescription;
-pub use element::Scalar;
+pub use decoder::{CircuitDescription, DecoderContext};
+pub use element::{DecodableElement, Element, EncodableElement, Scalar};
 pub use encoder::Encoder;
 pub use polynomial::{Polynomial, Selectors, WiredWitnesses};
 pub use preamble::Preamble;
@@ -39,7 +36,5 @@ pub use source::EncodableSource;
 pub use witness::{EncodableWitness, Witness};
 
 pub(crate) mod bytes;
-pub(crate) use decoder::DecoderContext;
-pub(crate) use element::{DecodableElement, Element, EncodableElement};
 pub(crate) use encoder::EncoderContext;
 pub(crate) use source::DecodedSource;

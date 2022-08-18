@@ -138,7 +138,7 @@ where
         // serialization, which will be desirable for checksum routines.
         match self {
             Some(t) => t.to_buffer(ctx, buf),
-            None => buf[..Self::len(ctx.config())].fill(0),
+            None => buf[..Self::len(ctx.config()).saturating_sub(1)].fill(0),
         }
     }
 }

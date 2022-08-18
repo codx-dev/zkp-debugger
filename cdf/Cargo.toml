@@ -13,3 +13,6 @@ dirs = "4.0"
 msgpacker = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 toml = "0.5"
+
+[dev-dependencies]
+quickcheck = "1.0"
