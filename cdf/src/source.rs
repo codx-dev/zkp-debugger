@@ -52,9 +52,9 @@ impl DecodableElement for EncodedSource {
     ) -> io::Result<()> {
         Self::validate_buffer(ctx.config(), buf)?;
 
-        let buf = self.line.try_decode_in_place(&ctx, buf)?;
-        let buf = self.col.try_decode_in_place(&ctx, buf)?;
-        let _ = self.contents_index.try_decode_in_place(&ctx, buf)?;
+        let buf = self.line.try_decode_in_place(ctx, buf)?;
+        let buf = self.col.try_decode_in_place(ctx, buf)?;
+        let _ = self.contents_index.try_decode_in_place(ctx, buf)?;
 
         Ok(())
     }

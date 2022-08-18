@@ -91,9 +91,9 @@ impl DecodableElement for Preamble {
     ) -> io::Result<()> {
         Self::validate_buffer(ctx.config(), buf)?;
 
-        let buf = self.witnesses.try_decode_in_place(&ctx, buf)?;
-        let buf = self.constraints.try_decode_in_place(&ctx, buf)?;
-        let _ = self.config.try_decode_in_place(&ctx, buf)?;
+        let buf = self.witnesses.try_decode_in_place(ctx, buf)?;
+        let buf = self.constraints.try_decode_in_place(ctx, buf)?;
+        let _ = self.config.try_decode_in_place(ctx, buf)?;
 
         Ok(())
     }

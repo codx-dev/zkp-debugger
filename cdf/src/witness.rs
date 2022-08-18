@@ -124,10 +124,10 @@ impl<'a> DecodableElement for Witness<'a> {
     ) -> io::Result<()> {
         Self::validate_buffer(ctx.config(), buf)?;
 
-        let buf = self.id.try_decode_in_place(&ctx, buf)?;
-        let buf = self.constraint.try_decode_in_place(&ctx, buf)?;
-        let buf = self.value.try_decode_in_place(&ctx, buf)?;
-        let _ = self.source.try_decode_in_place(&ctx, buf)?;
+        let buf = self.id.try_decode_in_place(ctx, buf)?;
+        let buf = self.constraint.try_decode_in_place(ctx, buf)?;
+        let buf = self.value.try_decode_in_place(ctx, buf)?;
+        let _ = self.source.try_decode_in_place(ctx, buf)?;
 
         Ok(())
     }
