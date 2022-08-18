@@ -82,18 +82,18 @@ impl DecodableElement for Selectors {
     ) -> io::Result<()> {
         Self::validate_buffer(ctx.config(), buf)?;
 
-        let buf = self.qm.try_decode_in_place(&ctx, buf)?;
-        let buf = self.ql.try_decode_in_place(&ctx, buf)?;
-        let buf = self.qr.try_decode_in_place(&ctx, buf)?;
-        let buf = self.qd.try_decode_in_place(&ctx, buf)?;
-        let buf = self.qc.try_decode_in_place(&ctx, buf)?;
-        let buf = self.qo.try_decode_in_place(&ctx, buf)?;
-        let buf = self.pi.try_decode_in_place(&ctx, buf)?;
-        let buf = self.qarith.try_decode_in_place(&ctx, buf)?;
-        let buf = self.qlogic.try_decode_in_place(&ctx, buf)?;
-        let buf = self.qrange.try_decode_in_place(&ctx, buf)?;
-        let buf = self.qgroup_variable.try_decode_in_place(&ctx, buf)?;
-        let _ = self.qfixed_add.try_decode_in_place(&ctx, buf)?;
+        let buf = self.qm.try_decode_in_place(ctx, buf)?;
+        let buf = self.ql.try_decode_in_place(ctx, buf)?;
+        let buf = self.qr.try_decode_in_place(ctx, buf)?;
+        let buf = self.qd.try_decode_in_place(ctx, buf)?;
+        let buf = self.qc.try_decode_in_place(ctx, buf)?;
+        let buf = self.qo.try_decode_in_place(ctx, buf)?;
+        let buf = self.pi.try_decode_in_place(ctx, buf)?;
+        let buf = self.qarith.try_decode_in_place(ctx, buf)?;
+        let buf = self.qlogic.try_decode_in_place(ctx, buf)?;
+        let buf = self.qrange.try_decode_in_place(ctx, buf)?;
+        let buf = self.qgroup_variable.try_decode_in_place(ctx, buf)?;
+        let _ = self.qfixed_add.try_decode_in_place(ctx, buf)?;
 
         Ok(())
     }
@@ -142,10 +142,10 @@ impl DecodableElement for WiredWitnesses {
         ctx: &DecoderContext<'a>,
         buf: &'b [u8],
     ) -> io::Result<()> {
-        let buf = self.a.try_decode_in_place(&ctx, buf)?;
-        let buf = self.b.try_decode_in_place(&ctx, buf)?;
-        let buf = self.d.try_decode_in_place(&ctx, buf)?;
-        let _ = self.o.try_decode_in_place(&ctx, buf)?;
+        let buf = self.a.try_decode_in_place(ctx, buf)?;
+        let buf = self.b.try_decode_in_place(ctx, buf)?;
+        let buf = self.d.try_decode_in_place(ctx, buf)?;
+        let _ = self.o.try_decode_in_place(ctx, buf)?;
 
         Ok(())
     }
@@ -190,9 +190,9 @@ impl DecodableElement for Polynomial {
         ctx: &DecoderContext<'a>,
         buf: &'b [u8],
     ) -> io::Result<()> {
-        let buf = self.selectors.try_decode_in_place(&ctx, buf)?;
-        let buf = self.witnesses.try_decode_in_place(&ctx, buf)?;
-        let _ = self.evaluation.try_decode_in_place(&ctx, buf)?;
+        let buf = self.selectors.try_decode_in_place(ctx, buf)?;
+        let buf = self.witnesses.try_decode_in_place(ctx, buf)?;
+        let _ = self.evaluation.try_decode_in_place(ctx, buf)?;
 
         Ok(())
     }

@@ -78,27 +78,29 @@ jobs:
           command: test
           args: --all-features
 
-  tests-osx:
-    needs: tests
-    runs-on: [macos-12]
-    strategy:
-      matrix:
-        rust:
-          - nightly
+            # osx consumes 10x minutes of CI, compared to ubuntu-latest
+            # we don't expect any differences from unix systems, so its not priority
+            #tests-osx:
+            #  needs: tests
+            #  runs-on: [macos-12]
+            #  strategy:
+            #    matrix:
+            #      rust:
+            #        - nightly
 
-    steps:
-      - uses: actions/checkout@v2
+            #  steps:
+            #    - uses: actions/checkout@v2
 
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: ${{ matrix.rust }}
-          override: true
+            #    - uses: actions-rs/toolchain@v1
+            #      with:
+            #        profile: minimal
+            #        toolchain: ${{ matrix.rust }}
+            #        override: true
 
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --all-features
+            #    - uses: actions-rs/cargo@v1
+            #      with:
+            #        command: test
+            #        args: --all-features
 
   coverage:
     needs: tests

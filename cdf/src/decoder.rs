@@ -34,6 +34,11 @@ impl<S> CircuitDescription<S> {
 
         (ctx, source)
     }
+
+    /// Decoded preamble
+    pub const fn preamble(&self) -> &Preamble {
+        &self.preamble
+    }
 }
 
 impl CircuitDescription<File> {

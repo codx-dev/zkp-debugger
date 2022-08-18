@@ -58,7 +58,7 @@ pub trait DecodableElement: Sized + Element {
     ) -> io::Result<()>;
 
     /// Create a new instance of the type from the provided buffer
-    fn try_from_buffer<'a, 'b>(ctx: &DecoderContext<'a>, buf: &'b [u8]) -> io::Result<Self> {
+    fn try_from_buffer<'b>(ctx: &DecoderContext, buf: &'b [u8]) -> io::Result<Self> {
         let mut slf = Self::default();
 
         slf.try_from_buffer_in_place(ctx, buf)?;
@@ -90,13 +90,13 @@ pub trait DecodableElement: Sized + Element {
     }
 
     /// Fetch a new element from a context
-    fn try_from_reader<'a, R>(ctx: &DecoderContext<'a>, mut reader: R) -> io::Result<Self>
+    fn try_from_reader<R>(ctx: &DecoderContext, mut reader: R) -> io::Result<Self>
     where
         R: io::Read,
     {
         let mut slf = vec![0u8; Self::len(ctx.config())];
 
-        reader.read(&mut slf)?;
+        let _ = reader.read(&mut slf)?;
 
         Self::try_from_buffer(ctx, &slf)
     }

@@ -145,7 +145,7 @@ where
             target,
         } = self;
 
-        let preamble = context.preamble().clone();
+        let preamble = *context.preamble();
         let n = preamble.try_to_writer(target.by_ref(), context)?;
 
         let n = witnesses.try_fold(n, |n, w| {

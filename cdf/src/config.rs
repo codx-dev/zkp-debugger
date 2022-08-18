@@ -112,7 +112,7 @@ impl DecodableElement for Config {
     ) -> io::Result<()> {
         Self::validate_buffer(ctx.config(), buf)?;
 
-        let _ = self.zeroed_scalar_values.try_decode_in_place(&ctx, buf)?;
+        let _ = self.zeroed_scalar_values.try_decode_in_place(ctx, buf)?;
 
         Ok(())
     }
