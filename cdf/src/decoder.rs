@@ -39,6 +39,11 @@ impl<S> CircuitDescription<S> {
     pub const fn preamble(&self) -> &Preamble {
         &self.preamble
     }
+
+    /// Check if the provided name is contained within the available source names
+    pub fn source_name_contains(&self, name: &str) -> bool {
+        self.source_names.iter().any(|n| n.contains(name))
+    }
 }
 
 impl CircuitDescription<File> {
