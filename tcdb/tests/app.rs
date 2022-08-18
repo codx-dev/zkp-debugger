@@ -1,3 +1,4 @@
+/*
 use super::*;
 use dusk_cdf::*;
 use dusk_zkp_debugger_utils::*;
@@ -141,3 +142,4 @@ fn continue_and_turn_works() {
 fn load_wont_panic() {
     App::load().ok();
 }
+*/

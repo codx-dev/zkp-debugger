@@ -1,6 +1,3 @@
-#[cfg(test)]
-mod tests;
-
 use std::collections::HashMap;
 use std::fs::File;
 use std::path::Path;
@@ -9,9 +6,7 @@ use std::{io, time};
 use bat::line_range::LineRanges;
 use bat::PrettyPrinter;
 use crossterm::{cursor, queue, terminal};
-use dusk_cdf::{
-    BaseConfig, CircuitDescription, CircuitDescriptionFile, Constraint, Preamble, Source,
-};
+use dusk_cdf::{BaseConfig, CircuitDescription, Constraint, Preamble};
 use prettytable::{cell, format, row, Table};
 use serde::{Deserialize, Serialize};
 
@@ -54,7 +49,7 @@ pub struct App<S> {
     breakpoints: HashMap<u64, Breakpoint>,
     next_breakpoint: u64,
     cdf: Option<CircuitDescription<S>>,
-    constraint: Option<Constraint>,
+    constraint: Option<usize>,
     preamble: Preamble,
     is_last_constraint_ok: bool,
     last_constraint: usize,
@@ -97,12 +92,13 @@ impl App<File> {
         })
     }
 
+    /*
     /// Open a CDF file
     pub fn open_path<P>(&mut self, path: P) -> io::Result<()>
     where
         P: AsRef<Path>,
     {
-        CircuitDescriptionFile::open_read(path)
+        CircuitDescriptionFile::open(path)
             .and_then(|cdf| self.set_cdf(cdf))
             .and_then(|_| self.restart())
             .and_then(|_| self.render())
@@ -154,8 +150,10 @@ impl App<File> {
     pub fn parse_and_execute(&mut self, line: &str) -> io::Result<State> {
         self.parser.parse(line).and_then(|c| self.execute(c))
     }
+    */
 }
 
+/*
 impl<S> App<S>
 where
     S: io::Read + io::Seek,
@@ -247,8 +245,10 @@ where
         Ok(())
     }
 }
+*/
 
 impl<S> App<S> {
+    /*
     fn add_breakpoint(&mut self, source: String, line: Option<u64>) -> u64 {
         let id = self.next_breakpoint;
 
@@ -270,7 +270,8 @@ impl<S> App<S> {
     fn constraint(&self) -> io::Result<&Constraint> {
         self.constraint
             .as_ref()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "failed to fetch constraint file"))
+            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "failed to fetch constraint"))
+            .and_then(|id| self.)
     }
 
     fn delete_breakpoint(&mut self, id: u64) {
@@ -413,6 +414,7 @@ impl<S> App<S> {
     fn should_interrupt(&self) -> bool {
         self.finished || !self.is_last_constraint_ok || self.is_breakpoint()
     }
+    */
 }
 
 /// Resulting state of an executed command

@@ -7,6 +7,7 @@ use rustyline::error::ReadlineError;
 use rustyline::{Config as RustylineConfig, Editor};
 
 fn main() {
+    /*
     let ParsedArgs {
         commands_history,
         path,
@@ -64,4 +65,5 @@ fn main() {
 
     rl.save_history(&commands_history)
         .expect("failed to save commands history");
+    */
 }

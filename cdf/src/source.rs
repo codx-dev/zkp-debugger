@@ -1,126 +1,161 @@
-use std::fs::{File, OpenOptions};
-use std::io;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+use std::{io, mem};
 
-use crate::{AtomicConfig, Config, Context, ContextUnit, Element, FixedText, Preamble};
+use crate::{
+    Config, DecodableElement, DecoderContext, Element, EncodableElement, EncoderContext, Preamble,
+};
 
-/// Source file representation for debug mapping, including line and column of a file
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Source {
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct EncodedSource {
     line: u64,
     col: u64,
-    path: FixedText<{ Self::PATH_LEN }>,
+    contents_index: usize,
 }
 
-impl Source {
-    /// Maximum allowed path length
-    pub const PATH_LEN: u16 = 1024;
-
-    /// Create a new source
-    pub const fn new(line: u64, col: u64, path: FixedText<{ Self::PATH_LEN }>) -> Self {
-        Self { line, col, path }
-    }
-
-    /// Source path
-    pub const fn path(&self) -> &FixedText<{ Self::PATH_LEN }> {
-        &self.path
-    }
-
-    /// Source line
-    pub const fn line(&self) -> u64 {
-        self.line
-    }
-
-    /// Return the canonical path represented in the source file. Read more: [`Path::canonicalize`]
-    pub fn canonical_path(&self) -> io::Result<PathBuf> {
-        Path::new(&*self.path).canonicalize()
-    }
-
-    /// Open the source file as read-only
-    pub fn open(&self) -> io::Result<File> {
-        self.canonical_path()
-            .and_then(|path| OpenOptions::new().read(true).open(path))
+impl EncodedSource {
+    const fn new(line: u64, col: u64, contents_index: usize) -> Self {
+        Self {
+            line,
+            col,
+            contents_index,
+        }
     }
 }
 
-impl Element for Source {
-    type Config = Config;
-
-    fn zeroed() -> Self {
-        Self::default()
-    }
-
-    fn len(_config: &Self::Config) -> usize {
-        3 * u64::len(&AtomicConfig)
-    }
-
-    fn to_buffer(&self, _config: &Self::Config, context: &mut ContextUnit, buf: &mut [u8]) {
-        let source_id = context.take_source_cache_id().unwrap_or_default();
-
-        let buf = self.line.encode(&AtomicConfig, context, buf);
-        let buf = self.col.encode(&AtomicConfig, context, buf);
-        let _ = source_id.encode(&AtomicConfig, context, buf);
-    }
-
-    fn try_from_buffer_in_place<S>(
-        &mut self,
-        config: &Self::Config,
-        context: &mut Context<S>,
-        buf: &[u8],
-    ) -> io::Result<()>
-    where
-        S: io::Read + io::Seek,
-    {
-        Self::validate_buffer_len(config, buf.len())?;
-
-        let mut source_id = 0usize;
-
-        let buf = self.line.try_decode_in_place(&AtomicConfig, context, buf)?;
-        let buf = self.col.try_decode_in_place(&AtomicConfig, context, buf)?;
-        let _ = source_id.try_decode_in_place(&AtomicConfig, context, buf)?;
-
-        self.path = context.fetch_source_path(source_id)?;
-
-        Ok(())
+impl Element for EncodedSource {
+    fn len(ctx: &Config) -> usize {
+        2 * u64::len(ctx) + usize::len(ctx)
     }
 
     fn validate(&self, preamble: &Preamble) -> io::Result<()> {
         self.line.validate(preamble)?;
         self.col.validate(preamble)?;
-        self.path.validate(preamble)?;
+        self.contents_index.validate(preamble)?;
 
         Ok(())
     }
 }
 
-#[test]
-fn open_canonical_path_works() {
-    use std::fs;
+impl EncodableElement for EncodedSource {
+    fn to_buffer(&self, ctx: &mut EncoderContext, buf: &mut [u8]) {
+        let buf = self.line.encode(ctx, buf);
+        let buf = self.col.encode(ctx, buf);
+        let _ = self.contents_index.encode(ctx, buf);
+    }
+}
 
-    let dir = tempfile::tempdir().expect("failed to create temporary dir");
-    let file = dir.path().join("open-canon-path-works.txt");
+impl DecodableElement for EncodedSource {
+    fn try_from_buffer_in_place<'b>(
+        &mut self,
+        ctx: &DecoderContext,
+        buf: &'b [u8],
+    ) -> io::Result<()> {
+        Self::validate_buffer(ctx.config(), buf)?;
 
-    fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .open(&file)
-        .expect("failed to open new file");
+        let buf = self.line.try_decode_in_place(&ctx, buf)?;
+        let buf = self.col.try_decode_in_place(&ctx, buf)?;
+        let _ = self.contents_index.try_decode_in_place(&ctx, buf)?;
 
-    let path = FixedText::from(format!("{}", file.display()));
+        Ok(())
+    }
+}
 
-    let line = 20;
-    let col = 5;
+/// Source file tripler that can be encoded into a CDF file
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct EncodableSource {
+    line: u64,
+    col: u64,
+    path: PathBuf,
+}
 
-    let source = Source::new(line, col, path);
+impl EncodableSource {
+    /// Create a new source instance
+    pub const fn new(line: u64, col: u64, path: PathBuf) -> Self {
+        Self { line, col, path }
+    }
+}
 
-    let canon = file.canonicalize().expect("failed to canon original path");
-    let canonical = source
-        .canonical_path()
-        .expect("failed to open canonical path");
+impl Element for EncodableSource {
+    fn len(ctx: &Config) -> usize {
+        EncodedSource::len(ctx)
+    }
 
-    assert_eq!(canon, canonical);
+    fn validate(&self, preamble: &Preamble) -> io::Result<()> {
+        self.line.validate(preamble)?;
+        self.col.validate(preamble)?;
 
-    source.open().expect("failed to open source path");
+        Ok(())
+    }
+}
 
-    fs::remove_dir_all(dir).ok();
+impl EncodableElement for EncodableSource {
+    fn to_buffer(&self, ctx: &mut EncoderContext, buf: &mut [u8]) {
+        let contents_index = ctx.add_path(self.path.clone());
+        let encodable = EncodedSource::new(self.line, self.col, contents_index);
+
+        encodable.to_buffer(ctx, buf)
+    }
+}
+
+/// Source file decoded from a CDF file
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct DecodedSource<'a> {
+    pub(crate) line: u64,
+    pub(crate) col: u64,
+    pub(crate) name: &'a str,
+    pub(crate) contents: &'a str,
+}
+
+impl<'a> Element for DecodedSource<'a> {
+    fn len(ctx: &Config) -> usize {
+        EncodedSource::len(ctx)
+    }
+
+    fn validate(&self, preamble: &Preamble) -> io::Result<()> {
+        self.line.validate(preamble)?;
+        self.col.validate(preamble)?;
+
+        Ok(())
+    }
+}
+
+impl<'a> DecodableElement for DecodedSource<'a> {
+    fn try_from_buffer_in_place<'x, 'b>(
+        &'x mut self,
+        ctx: &DecoderContext<'x>,
+        buf: &'b [u8],
+    ) -> io::Result<()> {
+        let (encoded, _) = EncodedSource::try_decode(ctx, buf)?;
+        let EncodedSource {
+            line,
+            col,
+            contents_index,
+        } = encoded;
+
+        let name = ctx.fetch_name(contents_index).ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                "the source name wasn't available in the file cache",
+            )
+        })?;
+
+        let contents = ctx.fetch_contents(contents_index).ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                "the source contents wasn't available in the file cache",
+            )
+        })?;
+
+        self.line = line;
+        self.col = col;
+
+        // the compiler isn't smart enough here to understand that `self` is `'a`; hence the
+        // context is also `'a`
+        //
+        // it is desirable to perform this safe change instead of taking every source as owned
+        self.name = unsafe { mem::transmute::<&'x str, &'a str>(name) };
+        self.contents = unsafe { mem::transmute::<&'x str, &'a str>(contents) };
+
+        Ok(())
+    }
 }

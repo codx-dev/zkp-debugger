@@ -3,28 +3,9 @@ use std::{fs, io, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Context, ContextUnit, Element, Preamble};
-
-/// Empty config set for atomic serialization that is not parametrizable
-pub struct AtomicConfig;
-
-impl Default for AtomicConfig {
-    fn default() -> Self {
-        AtomicConfig
-    }
-}
-
-impl From<&Config> for AtomicConfig {
-    fn from(_config: &Config) -> Self {
-        AtomicConfig
-    }
-}
-
-impl From<&Config> for Config {
-    fn from(config: &Config) -> Self {
-        *config
-    }
-}
+use crate::{
+    DecodableElement, DecoderContext, Element, EncodableElement, EncoderContext, Preamble,
+};
 
 /// Base configuration schema
 pub trait BaseConfig: Sized + Default + Serialize + for<'a> Deserialize<'a> {
@@ -106,73 +87,33 @@ impl BaseConfig for Config {
 }
 
 impl Element for Config {
-    type Config = AtomicConfig;
-
-    fn zeroed() -> Self {
-        Self::DEFAULT
+    fn len(ctx: &Config) -> usize {
+        bool::len(ctx)
     }
 
-    fn len(_config: &Self::Config) -> usize {
-        Self::LEN
-    }
+    fn validate(&self, preamble: &Preamble) -> io::Result<()> {
+        self.zeroed_scalar_values.validate(preamble)?;
 
-    fn to_buffer(&self, _config: &Self::Config, context: &mut ContextUnit, buf: &mut [u8]) {
-        let _ = self
-            .zeroed_scalar_values
-            .encode(&AtomicConfig, context, buf);
-    }
-
-    fn try_from_buffer_in_place<S>(
-        &mut self,
-        config: &Self::Config,
-        context: &mut Context<S>,
-        buf: &[u8],
-    ) -> io::Result<()>
-    where
-        S: io::Read + io::Seek,
-    {
-        Self::validate_buffer_len(config, buf.len())?;
-
-        let _ = self
-            .zeroed_scalar_values
-            .try_decode_in_place(&AtomicConfig, context, buf)?;
-
-        Ok(())
-    }
-
-    fn validate(&self, _preamble: &Preamble) -> io::Result<()> {
         Ok(())
     }
 }
 
-#[test]
-fn builder_functions_works() {
-    assert!(
-        Config::default()
-            .with_zeroed_scalar_values(true)
-            .zeroed_scalar_values
-    );
-
-    assert!(
-        !Config::default()
-            .with_zeroed_scalar_values(false)
-            .zeroed_scalar_values
-    );
+impl EncodableElement for Config {
+    fn to_buffer(&self, ctx: &mut EncoderContext, buf: &mut [u8]) {
+        let _ = self.zeroed_scalar_values.encode(ctx, buf);
+    }
 }
 
-#[test]
-fn zeroed_works() {
-    assert_eq!(Config::zeroed(), Config::DEFAULT)
-}
+impl DecodableElement for Config {
+    fn try_from_buffer_in_place<'a, 'b>(
+        &'a mut self,
+        ctx: &DecoderContext<'a>,
+        buf: &'b [u8],
+    ) -> io::Result<()> {
+        Self::validate_buffer(ctx.config(), buf)?;
 
-#[test]
-fn atomic_config_has_default() {
-    AtomicConfig::default();
-}
+        let _ = self.zeroed_scalar_values.try_decode_in_place(&ctx, buf)?;
 
-#[test]
-fn validate_works() {
-    Config::default()
-        .validate(&Default::default())
-        .expect("default config validate should pass");
+        Ok(())
+    }
 }

@@ -1,7 +1,9 @@
 use std::io;
 use std::ops::{Deref, DerefMut};
 
-use crate::{Config, Context, ContextUnit, Element, Preamble};
+use crate::{
+    Config, DecodableElement, DecoderContext, Element, EncodableElement, EncoderContext, Preamble,
+};
 
 /// Scalar field representation with up to 256 bits.
 ///
@@ -43,67 +45,41 @@ impl DerefMut for Scalar {
 }
 
 impl Element for Scalar {
-    type Config = Config;
-
-    fn zeroed() -> Self {
-        Self::default()
-    }
-
-    fn len(config: &Self::Config) -> usize {
-        if config.zeroed_scalar_values {
+    fn len(ctx: &Config) -> usize {
+        if ctx.zeroed_scalar_values {
             0
         } else {
             Self::LEN
         }
     }
 
-    fn to_buffer(&self, config: &Self::Config, _context: &mut ContextUnit, buf: &mut [u8]) {
-        if !config.zeroed_scalar_values {
+    fn validate(&self, _preamble: &Preamble) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+impl EncodableElement for Scalar {
+    fn to_buffer(&self, ctx: &mut EncoderContext, buf: &mut [u8]) {
+        if !ctx.config().zeroed_scalar_values {
             let buf = &mut buf[..Self::LEN];
 
             buf.copy_from_slice(&self.scalar);
         }
     }
+}
 
-    fn try_from_buffer_in_place<S>(
+impl DecodableElement for Scalar {
+    fn try_from_buffer_in_place<'b>(
         &mut self,
-        config: &Self::Config,
-        _context: &mut Context<S>,
-        buf: &[u8],
+        ctx: &DecoderContext,
+        buf: &'b [u8],
     ) -> io::Result<()> {
-        Self::validate_buffer_len(config, buf.len())?;
+        Self::validate_buffer(ctx.config(), buf)?;
 
-        if !config.zeroed_scalar_values {
+        if !ctx.config().zeroed_scalar_values {
             self.scalar.copy_from_slice(&buf[..Self::LEN]);
         }
 
         Ok(())
     }
-
-    fn validate(&self, _config: &Preamble) -> io::Result<()> {
-        Ok(())
-    }
-}
-
-#[test]
-fn bytes_encode_works() {
-    let mut bytes = [0xfa; Scalar::LEN];
-    let mut scalar = Scalar::from(bytes);
-
-    assert_eq!(&bytes, scalar.as_ref());
-    assert_eq!(bytes, *scalar);
-    assert_eq!(&mut bytes, scalar.deref_mut());
-}
-
-#[test]
-fn encode_zeroed_len_is_consitent() {
-    let config = *Config::default().with_zeroed_scalar_values(false);
-    let len = <Scalar as Element>::len(&config);
-
-    assert_eq!(Scalar::LEN, len);
-
-    let config = *Config::default().with_zeroed_scalar_values(true);
-    let len = <Scalar as Element>::len(&config);
-
-    assert_eq!(0, len);
 }

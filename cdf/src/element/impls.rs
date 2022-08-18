@@ -1,34 +1,14 @@
 use std::marker::PhantomData;
 use std::{io, mem};
 
-use crate::{bytes, AtomicConfig, Config, Context, ContextUnit, Element, Preamble};
+use crate::{
+    bytes, Config, DecodableElement, DecoderContext, Element, EncodableElement, EncoderContext,
+    Preamble,
+};
 
 impl Element for bool {
-    type Config = AtomicConfig;
-
-    fn zeroed() -> Self {
-        false
-    }
-
-    fn len(_config: &Self::Config) -> usize {
+    fn len(_ctx: &Config) -> usize {
         1
-    }
-
-    fn to_buffer(&self, _config: &Self::Config, _context: &mut ContextUnit, buf: &mut [u8]) {
-        buf[0] = *self as u8;
-    }
-
-    fn try_from_buffer_in_place<S>(
-        &mut self,
-        config: &Self::Config,
-        _context: &mut Context<S>,
-        buf: &[u8],
-    ) -> io::Result<()> {
-        Self::validate_buffer_len(config, buf.len())?;
-
-        *self = buf[0] != 0;
-
-        Ok(())
     }
 
     fn validate(&self, _preamble: &Preamble) -> io::Result<()> {
@@ -36,35 +16,51 @@ impl Element for bool {
     }
 }
 
+impl EncodableElement for bool {
+    fn to_buffer(&self, _ctx: &mut EncoderContext, buf: &mut [u8]) {
+        buf[0] = *self as u8;
+    }
+}
+
+impl DecodableElement for bool {
+    fn try_from_buffer_in_place<'b>(
+        &mut self,
+        ctx: &DecoderContext,
+        buf: &'b [u8],
+    ) -> io::Result<()> {
+        Self::validate_buffer(ctx.config(), buf)?;
+
+        *self = buf[0] != 0;
+
+        Ok(())
+    }
+}
+
 macro_rules! impl_num {
     ($t:ty) => {
         impl Element for $t {
-            type Config = AtomicConfig;
-
-            fn zeroed() -> Self {
-                0
-            }
-
-            fn len(_config: &Self::Config) -> usize {
+            fn len(_ctx: &Config) -> usize {
                 mem::size_of::<$t>()
             }
 
-            fn to_buffer(
-                &self,
-                _config: &Self::Config,
-                _context: &mut ContextUnit,
-                buf: &mut [u8],
-            ) {
+            fn validate(&self, _preamble: &Preamble) -> io::Result<()> {
+                Ok(())
+            }
+        }
+
+        impl EncodableElement for $t {
+            fn to_buffer(&self, _ctx: &mut EncoderContext, buf: &mut [u8]) {
                 bytes::encode_bytes(&self.to_le_bytes(), buf);
             }
+        }
 
-            fn try_from_buffer_in_place<S>(
+        impl DecodableElement for $t {
+            fn try_from_buffer_in_place<'b>(
                 &mut self,
-                config: &Self::Config,
-                _context: &mut Context<S>,
-                buf: &[u8],
+                ctx: &DecoderContext,
+                buf: &'b [u8],
             ) -> io::Result<()> {
-                Self::validate_buffer_len(config, buf.len())?;
+                Self::validate_buffer(ctx.config(), buf)?;
 
                 const LEN: usize = mem::size_of::<$t>();
 
@@ -76,50 +72,16 @@ macro_rules! impl_num {
 
                 Ok(())
             }
-
-            fn validate(&self, _preamble: &Preamble) -> io::Result<()> {
-                Ok(())
-            }
         }
     };
 }
 
-impl_num!(u16);
 impl_num!(u64);
 
 // usize is implemented manually as u64 so the encoding will be platform agnostic
 impl Element for usize {
-    type Config = AtomicConfig;
-
-    fn zeroed() -> Self {
-        0
-    }
-
-    fn len(_config: &Self::Config) -> usize {
-        mem::size_of::<u64>()
-    }
-
-    fn to_buffer(&self, _config: &Self::Config, _context: &mut ContextUnit, buf: &mut [u8]) {
-        bytes::encode_bytes(&self.to_le_bytes(), buf);
-    }
-
-    fn try_from_buffer_in_place<S>(
-        &mut self,
-        config: &Self::Config,
-        _context: &mut Context<S>,
-        buf: &[u8],
-    ) -> io::Result<()> {
-        Self::validate_buffer_len(config, buf.len())?;
-
-        const LEN: usize = mem::size_of::<u64>();
-
-        let mut slf = [0u8; LEN];
-
-        slf.copy_from_slice(&buf[..LEN]);
-
-        *self = u64::from_le_bytes(slf) as usize;
-
-        Ok(())
+    fn len(ctx: &Config) -> usize {
+        u64::len(ctx)
     }
 
     fn validate(&self, _preamble: &Preamble) -> io::Result<()> {
@@ -127,52 +89,79 @@ impl Element for usize {
     }
 }
 
-impl<C, T> Element for Option<T>
+impl EncodableElement for usize {
+    fn to_buffer(&self, ctx: &mut EncoderContext, buf: &mut [u8]) {
+        (*self as u64).to_buffer(ctx, buf)
+    }
+}
+
+impl DecodableElement for usize {
+    fn try_from_buffer_in_place<'b>(
+        &mut self,
+        ctx: &DecoderContext,
+        buf: &'b [u8],
+    ) -> io::Result<()> {
+        let mut slf = 0u64;
+
+        slf.try_from_buffer_in_place(ctx, buf)?;
+
+        *self = slf as usize;
+
+        Ok(())
+    }
+}
+
+impl<T> Element for Option<T>
 where
-    C: for<'a> From<&'a Config>,
-    T: Element<Config = C>,
+    T: Element,
 {
-    type Config = C;
-
-    fn zeroed() -> Self {
-        None
+    fn len(ctx: &Config) -> usize {
+        T::len(ctx) + 1
     }
 
-    fn len(config: &Self::Config) -> usize {
-        T::len(config) + 1
+    fn validate(&self, preamble: &Preamble) -> io::Result<()> {
+        match self {
+            Some(t) => t.validate(preamble),
+            None => Ok(()),
+        }
     }
+}
 
-    fn to_buffer(&self, config: &Self::Config, context: &mut ContextUnit, buf: &mut [u8]) {
-        let buf = self.is_some().encode(&AtomicConfig, context, buf);
+impl<T> EncodableElement for Option<T>
+where
+    T: EncodableElement,
+{
+    fn to_buffer(&self, ctx: &mut EncoderContext, buf: &mut [u8]) {
+        let buf = self.is_some().encode(ctx, buf);
 
         // Will fill the space with zeroes, if `None`. This will guarantee deterministic
         // serialization, which will be desirable for checksum routines.
         match self {
-            Some(t) => t.to_buffer(config, context, buf),
-            None => buf.fill(0),
+            Some(t) => t.to_buffer(ctx, buf),
+            None => buf[..Self::len(ctx.config())].fill(0),
         }
     }
+}
 
-    fn try_from_buffer_in_place<S>(
+impl<T> DecodableElement for Option<T>
+where
+    T: DecodableElement,
+{
+    fn try_from_buffer_in_place<'b>(
         &mut self,
-        config: &Self::Config,
-        context: &mut Context<S>,
-        buf: &[u8],
-    ) -> io::Result<()>
-    where
-        S: io::Read + io::Seek,
-    {
-        Self::validate_buffer_len(config, buf.len())?;
+        ctx: &DecoderContext,
+        buf: &'b [u8],
+    ) -> io::Result<()> {
+        Self::validate_buffer(ctx.config(), buf)?;
 
-        let (is_some, buf) = bool::try_decode(&AtomicConfig, context, buf)?;
-
+        let (is_some, buf) = bool::try_decode(ctx, buf)?;
         match self {
             Some(t) if is_some => {
-                t.try_from_buffer_in_place(config, context, buf)?;
+                t.try_from_buffer_in_place(ctx, buf)?;
             }
 
             None if is_some => {
-                let t = T::try_from_buffer(config, context, buf)?;
+                let t = T::try_from_buffer(ctx, buf)?;
 
                 self.replace(t);
             }
@@ -184,60 +173,35 @@ where
 
         Ok(())
     }
-
-    fn validate(&self, preamble: &Preamble) -> io::Result<()> {
-        match self {
-            Some(t) => t.validate(preamble),
-            None => Ok(()),
-        }
-    }
 }
 
 impl Element for () {
-    type Config = AtomicConfig;
-
-    fn zeroed() -> Self {}
-
-    fn len(_config: &Self::Config) -> usize {
+    fn len(_ctx: &Config) -> usize {
         0
     }
 
-    fn to_buffer(&self, _config: &Self::Config, _context: &mut ContextUnit, _buf: &mut [u8]) {}
-
-    fn try_from_buffer_in_place<S>(
-        &mut self,
-        _config: &Self::Config,
-        _context: &mut Context<S>,
-        _buf: &[u8],
-    ) -> io::Result<()> {
+    fn validate(&self, _preamble: &Preamble) -> io::Result<()> {
         Ok(())
     }
+}
 
-    fn validate(&self, _preamble: &Preamble) -> io::Result<()> {
+impl EncodableElement for () {
+    fn to_buffer(&self, _ctx: &mut EncoderContext, _buf: &mut [u8]) {}
+}
+
+impl DecodableElement for () {
+    fn try_from_buffer_in_place<'b>(
+        &mut self,
+        _ctx: &DecoderContext,
+        _buf: &'b [u8],
+    ) -> io::Result<()> {
         Ok(())
     }
 }
 
 impl<T> Element for PhantomData<T> {
-    type Config = AtomicConfig;
-
-    fn zeroed() -> Self {
-        PhantomData
-    }
-
-    fn len(_config: &Self::Config) -> usize {
+    fn len(_ctx: &Config) -> usize {
         0
-    }
-
-    fn to_buffer(&self, _config: &Self::Config, _context: &mut ContextUnit, _buf: &mut [u8]) {}
-
-    fn try_from_buffer_in_place<S>(
-        &mut self,
-        _config: &Self::Config,
-        _context: &mut Context<S>,
-        _buf: &[u8],
-    ) -> io::Result<()> {
-        Ok(())
     }
 
     fn validate(&self, _preamble: &Preamble) -> io::Result<()> {
@@ -245,20 +209,16 @@ impl<T> Element for PhantomData<T> {
     }
 }
 
-#[test]
-fn validate_option_works() {
-    Some(34873u64)
-        .validate(&Default::default())
-        .expect("default config validate should pass");
-
-    let opt: Option<u64> = None;
-
-    opt.validate(&Default::default())
-        .expect("default config validate should pass");
+impl<T> EncodableElement for PhantomData<T> {
+    fn to_buffer(&self, _ctx: &mut EncoderContext, _buf: &mut [u8]) {}
 }
 
-#[test]
-fn validate_unit_works() {
-    ().validate(&Default::default())
-        .expect("default config validate should pass");
+impl<T> DecodableElement for PhantomData<T> {
+    fn try_from_buffer_in_place<'b>(
+        &mut self,
+        _ctx: &DecoderContext,
+        _buf: &'b [u8],
+    ) -> io::Result<()> {
+        Ok(())
+    }
 }

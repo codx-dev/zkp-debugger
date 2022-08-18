@@ -1,175 +1,42 @@
 use std::io;
 
 use crate::{
-    AtomicConfig, Config, Context, ContextUnit, Element, IndexedWitness, Preamble, Scalar,
+    Config, DecodableElement, DecoderContext, Element, EncodableElement, EncoderContext, Preamble,
+    Scalar,
 };
 
-/// PLONK polynomial expression representation with its selectors and witnesses.
+/// Polynomial selectors
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Polynomial {
-    qm: Scalar,
-    ql: Scalar,
-    qr: Scalar,
-    qd: Scalar,
-    qc: Scalar,
-    qo: Scalar,
-    pi: Scalar,
-    qarith: Scalar,
-    qlogic: Scalar,
-    qvariable_add: Scalar,
-    a: IndexedWitness,
-    b: IndexedWitness,
-    d: IndexedWitness,
-    o: IndexedWitness,
-    re: bool,
+pub struct Selectors {
+    /// Qm (mult) selector
+    pub qm: Scalar,
+    /// Ql (left) selector
+    pub ql: Scalar,
+    /// Qr (right) selector
+    pub qr: Scalar,
+    /// Qd (fourth) selector
+    pub qd: Scalar,
+    /// Qc (constant) selector
+    pub qc: Scalar,
+    /// Qo (output) selector
+    pub qo: Scalar,
+    /// Public input
+    pub pi: Scalar,
+    /// Qarith (arithmetic) internal selector
+    pub qarith: Scalar,
+    /// Qlogic (logical) internal selector
+    pub qlogic: Scalar,
+    /// Qrange (range check) internal selector
+    pub qrange: Scalar,
+    /// Qgroup_variable (ecc group variable add) internal selector
+    pub qgroup_variable: Scalar,
+    /// Qgroup_fixed (ecc group fixed add) internal selector
+    pub qfixed_add: Scalar,
 }
 
-impl Polynomial {
-    // TODO refactor into type, as clippy suggests
-    #[allow(clippy::too_many_arguments)]
-    /// Create a new polynomial
-    pub const fn new(
-        qm: Scalar,
-        ql: Scalar,
-        qr: Scalar,
-        qd: Scalar,
-        qc: Scalar,
-        qo: Scalar,
-        pi: Scalar,
-        qarith: Scalar,
-        qlogic: Scalar,
-        qvariable_add: Scalar,
-        a: IndexedWitness,
-        b: IndexedWitness,
-        d: IndexedWitness,
-        o: IndexedWitness,
-        re: bool,
-    ) -> Self {
-        Self {
-            qm,
-            ql,
-            qr,
-            qd,
-            qc,
-            qo,
-            pi,
-            qarith,
-            qlogic,
-            qvariable_add,
-            a,
-            b,
-            d,
-            o,
-            re,
-        }
-    }
-
-    /// Check if the polynomial evaluation is ok
-    pub const fn is_ok(&self) -> bool {
-        self.re
-    }
-
-    // TODO refactor into type, as clippy suggests
-    #[allow(clippy::type_complexity)]
-    /// Fetch the constraint internals
-    pub const fn internals(
-        &self,
-    ) -> (
-        &Scalar,
-        &Scalar,
-        &Scalar,
-        &Scalar,
-        &Scalar,
-        &Scalar,
-        &Scalar,
-        &Scalar,
-        &Scalar,
-        &Scalar,
-        &IndexedWitness,
-        &IndexedWitness,
-        &IndexedWitness,
-        &IndexedWitness,
-        bool,
-    ) {
-        (
-            &self.qm,
-            &self.ql,
-            &self.qr,
-            &self.qd,
-            &self.qc,
-            &self.qo,
-            &self.pi,
-            &self.qarith,
-            &self.qlogic,
-            &self.qvariable_add,
-            &self.a,
-            &self.b,
-            &self.d,
-            &self.o,
-            self.re,
-        )
-    }
-}
-
-impl Element for Polynomial {
-    type Config = Config;
-
-    fn zeroed() -> Self {
-        Self::default()
-    }
-
-    fn len(config: &Self::Config) -> usize {
-        10 * Scalar::len(config) + 4 * IndexedWitness::len(config) + bool::len(&AtomicConfig)
-    }
-
-    fn to_buffer(&self, config: &Self::Config, context: &mut ContextUnit, buf: &mut [u8]) {
-        let buf = self.qm.encode(config, context, buf);
-        let buf = self.ql.encode(config, context, buf);
-        let buf = self.qr.encode(config, context, buf);
-        let buf = self.qd.encode(config, context, buf);
-        let buf = self.qc.encode(config, context, buf);
-        let buf = self.qo.encode(config, context, buf);
-        let buf = self.pi.encode(config, context, buf);
-        let buf = self.qarith.encode(config, context, buf);
-        let buf = self.qlogic.encode(config, context, buf);
-        let buf = self.qvariable_add.encode(config, context, buf);
-        let buf = self.a.encode(config, context, buf);
-        let buf = self.b.encode(config, context, buf);
-        let buf = self.d.encode(config, context, buf);
-        let buf = self.o.encode(config, context, buf);
-        let _ = self.re.encode(&AtomicConfig, context, buf);
-    }
-
-    fn try_from_buffer_in_place<S>(
-        &mut self,
-        config: &Self::Config,
-        context: &mut Context<S>,
-        buf: &[u8],
-    ) -> io::Result<()>
-    where
-        S: io::Read + io::Seek,
-    {
-        Self::validate_buffer_len(config, buf.len())?;
-
-        let buf = self.qm.try_decode_in_place(config, context, buf)?;
-        let buf = self.ql.try_decode_in_place(config, context, buf)?;
-        let buf = self.qr.try_decode_in_place(config, context, buf)?;
-        let buf = self.qd.try_decode_in_place(config, context, buf)?;
-        let buf = self.qc.try_decode_in_place(config, context, buf)?;
-        let buf = self.qo.try_decode_in_place(config, context, buf)?;
-        let buf = self.pi.try_decode_in_place(config, context, buf)?;
-        let buf = self.qarith.try_decode_in_place(config, context, buf)?;
-        let buf = self.qlogic.try_decode_in_place(config, context, buf)?;
-        let buf = self
-            .qvariable_add
-            .try_decode_in_place(config, context, buf)?;
-        let buf = self.a.try_decode_in_place(config, context, buf)?;
-        let buf = self.b.try_decode_in_place(config, context, buf)?;
-        let buf = self.d.try_decode_in_place(config, context, buf)?;
-        let buf = self.o.try_decode_in_place(config, context, buf)?;
-        let _ = self.re.try_decode_in_place(&AtomicConfig, context, buf)?;
-
-        Ok(())
+impl Element for Selectors {
+    fn len(ctx: &Config) -> usize {
+        12 * Scalar::len(ctx)
     }
 
     fn validate(&self, preamble: &Preamble) -> io::Result<()> {
@@ -182,20 +49,177 @@ impl Element for Polynomial {
         self.pi.validate(preamble)?;
         self.qarith.validate(preamble)?;
         self.qlogic.validate(preamble)?;
-        self.qvariable_add.validate(preamble)?;
-        self.a.validate(preamble)?;
-        self.b.validate(preamble)?;
-        self.d.validate(preamble)?;
-        self.o.validate(preamble)?;
-        self.re.validate(preamble)?;
+        self.qrange.validate(preamble)?;
+        self.qgroup_variable.validate(preamble)?;
+        self.qfixed_add.validate(preamble)?;
 
         Ok(())
     }
 }
 
-#[test]
-fn validate_works() {
-    Polynomial::zeroed()
-        .validate(&Default::default())
-        .expect("default config validate should pass");
+impl EncodableElement for Selectors {
+    fn to_buffer(&self, ctx: &mut EncoderContext, buf: &mut [u8]) {
+        let buf = self.qm.encode(ctx, buf);
+        let buf = self.ql.encode(ctx, buf);
+        let buf = self.qr.encode(ctx, buf);
+        let buf = self.qd.encode(ctx, buf);
+        let buf = self.qc.encode(ctx, buf);
+        let buf = self.qo.encode(ctx, buf);
+        let buf = self.pi.encode(ctx, buf);
+        let buf = self.qarith.encode(ctx, buf);
+        let buf = self.qlogic.encode(ctx, buf);
+        let buf = self.qrange.encode(ctx, buf);
+        let buf = self.qgroup_variable.encode(ctx, buf);
+        let _ = self.qfixed_add.encode(ctx, buf);
+    }
+}
+
+impl DecodableElement for Selectors {
+    fn try_from_buffer_in_place<'a, 'b>(
+        &'a mut self,
+        ctx: &DecoderContext<'a>,
+        buf: &'b [u8],
+    ) -> io::Result<()> {
+        Self::validate_buffer(ctx.config(), buf)?;
+
+        let buf = self.qm.try_decode_in_place(&ctx, buf)?;
+        let buf = self.ql.try_decode_in_place(&ctx, buf)?;
+        let buf = self.qr.try_decode_in_place(&ctx, buf)?;
+        let buf = self.qd.try_decode_in_place(&ctx, buf)?;
+        let buf = self.qc.try_decode_in_place(&ctx, buf)?;
+        let buf = self.qo.try_decode_in_place(&ctx, buf)?;
+        let buf = self.pi.try_decode_in_place(&ctx, buf)?;
+        let buf = self.qarith.try_decode_in_place(&ctx, buf)?;
+        let buf = self.qlogic.try_decode_in_place(&ctx, buf)?;
+        let buf = self.qrange.try_decode_in_place(&ctx, buf)?;
+        let buf = self.qgroup_variable.try_decode_in_place(&ctx, buf)?;
+        let _ = self.qfixed_add.try_decode_in_place(&ctx, buf)?;
+
+        Ok(())
+    }
+}
+
+/// Polynomial witnesses allocated to a constraint system
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct WiredWitnesses {
+    /// Wired `a`
+    pub a: usize,
+    /// Wired `b`
+    pub b: usize,
+    /// Wired `d` (fourth)
+    pub d: usize,
+    /// Wired `o` (output)
+    pub o: usize,
+}
+
+impl Element for WiredWitnesses {
+    fn len(ctx: &Config) -> usize {
+        4 * usize::len(ctx)
+    }
+
+    fn validate(&self, preamble: &Preamble) -> io::Result<()> {
+        self.a.validate(preamble)?;
+        self.b.validate(preamble)?;
+        self.d.validate(preamble)?;
+        self.o.validate(preamble)?;
+
+        Ok(())
+    }
+}
+
+impl EncodableElement for WiredWitnesses {
+    fn to_buffer(&self, ctx: &mut EncoderContext, buf: &mut [u8]) {
+        let buf = self.a.encode(ctx, buf);
+        let buf = self.b.encode(ctx, buf);
+        let buf = self.d.encode(ctx, buf);
+        let _ = self.o.encode(ctx, buf);
+    }
+}
+
+impl DecodableElement for WiredWitnesses {
+    fn try_from_buffer_in_place<'a, 'b>(
+        &'a mut self,
+        ctx: &DecoderContext<'a>,
+        buf: &'b [u8],
+    ) -> io::Result<()> {
+        let buf = self.a.try_decode_in_place(&ctx, buf)?;
+        let buf = self.b.try_decode_in_place(&ctx, buf)?;
+        let buf = self.d.try_decode_in_place(&ctx, buf)?;
+        let _ = self.o.try_decode_in_place(&ctx, buf)?;
+
+        Ok(())
+    }
+}
+
+/// PLONK polynomial expression representation with its selectors and witnesses.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Polynomial {
+    /// Selectors of the polynomial
+    pub selectors: Selectors,
+    /// Wired witnesses
+    pub witnesses: WiredWitnesses,
+    /// Polynomial evaluated to zero?
+    pub evaluation: bool,
+}
+
+impl Element for Polynomial {
+    fn len(ctx: &Config) -> usize {
+        Selectors::len(ctx) + WiredWitnesses::len(ctx) + bool::len(ctx)
+    }
+
+    fn validate(&self, preamble: &Preamble) -> io::Result<()> {
+        self.selectors.validate(preamble)?;
+        self.witnesses.validate(preamble)?;
+        self.evaluation.validate(preamble)?;
+
+        Ok(())
+    }
+}
+
+impl EncodableElement for Polynomial {
+    fn to_buffer(&self, ctx: &mut EncoderContext, buf: &mut [u8]) {
+        let buf = self.selectors.encode(ctx, buf);
+        let buf = self.witnesses.encode(ctx, buf);
+        let _ = self.evaluation.encode(ctx, buf);
+    }
+}
+
+impl DecodableElement for Polynomial {
+    fn try_from_buffer_in_place<'a, 'b>(
+        &'a mut self,
+        ctx: &DecoderContext<'a>,
+        buf: &'b [u8],
+    ) -> io::Result<()> {
+        let buf = self.selectors.try_decode_in_place(&ctx, buf)?;
+        let buf = self.witnesses.try_decode_in_place(&ctx, buf)?;
+        let _ = self.evaluation.try_decode_in_place(&ctx, buf)?;
+
+        Ok(())
+    }
+}
+
+impl Polynomial {
+    /// Create a new polynomial with evaluation to either correct or incorrect
+    pub const fn new(selectors: Selectors, witnesses: WiredWitnesses, evaluation: bool) -> Self {
+        Self {
+            selectors,
+            witnesses,
+            evaluation,
+        }
+    }
+
+    /// Check if the polynomial evaluation is ok
+    pub const fn is_ok(&self) -> bool {
+        self.evaluation
+    }
+
+    /// Wire selectors
+    pub const fn selectors(&self) -> &Selectors {
+        &self.selectors
+    }
+
+    /// Wired witnesses
+    pub const fn witnesses(&self) -> &WiredWitnesses {
+        &self.witnesses
+    }
 }
