@@ -6,10 +6,10 @@ use crate::{
 };
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct EncodedSource {
-    line: u64,
-    col: u64,
-    contents_index: usize,
+pub(crate) struct EncodedSource {
+    pub(crate) line: u64,
+    pub(crate) col: u64,
+    pub(crate) contents_index: usize,
 }
 
 impl EncodedSource {
