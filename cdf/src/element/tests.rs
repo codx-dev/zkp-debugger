@@ -131,16 +131,16 @@ fn elements() {
         TestResult::passed()
     }
 
-    quickcheck(prop as fn(_, ()) -> TestResult);
-    quickcheck(prop as fn(_, bool) -> TestResult);
-    quickcheck(prop as fn(_, u64) -> TestResult);
-    quickcheck(prop as fn(_, usize) -> TestResult);
-    quickcheck(prop as fn(_, Config) -> TestResult);
-    quickcheck(prop as fn(_, Preamble) -> TestResult);
-    quickcheck(prop as fn(_, Scalar) -> TestResult);
-    quickcheck(prop as fn(_, Config) -> TestResult);
-    quickcheck(prop as fn(_, WiredWitnesses) -> TestResult);
-    quickcheck(prop as fn(_, Selectors) -> TestResult);
-    quickcheck(prop as fn(_, Polynomial) -> TestResult);
-    quickcheck(prop as fn(_, EncodedSource) -> TestResult);
+    quickcheck(prop as fn(_, ()) -> _);
+    quickcheck(prop as fn(_, bool) -> _);
+    quickcheck(prop as fn(_, u64) -> _);
+    quickcheck(prop as fn(_, usize) -> _);
+    quickcheck(prop as fn(_, Config) -> _);
+    quickcheck(prop as fn(_, Preamble) -> _);
+    quickcheck(prop as fn(_, Scalar) -> _);
+    quickcheck(prop as fn(_, Config) -> _);
+    quickcheck(prop as fn(_, WiredWitnesses) -> _);
+    quickcheck(prop as fn(_, Selectors) -> _);
+    quickcheck(prop as fn(_, Polynomial) -> _);
+    quickcheck(prop as fn(_, EncodedSource) -> _);
 }
