@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "naive-circuit",
+    "naive-hash",
+    "naive-signature"
+]
+
+[profile.release]
+debug = true
