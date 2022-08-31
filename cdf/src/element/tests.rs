@@ -84,10 +84,14 @@ impl Arbitrary for EncodedSource {
 
 #[test]
 fn elements() {
-    fn prop<T>(len: u8, data: T) -> TestResult
+    fn prop<T>(len: u16, data: T) -> TestResult
     where
         T: Arbitrary + EncodableElement + DecodableElement + PartialEq + fmt::Debug,
     {
+        if 1024 < len {
+            return TestResult::discard();
+        }
+
         let len = len as usize;
         let min = T::len(&Default::default());
 
