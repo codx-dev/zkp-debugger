@@ -1,0 +1,11 @@
+[package]
+name = "naive-circuit"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "3.2", features = ["derive"] }
+dusk-plonk = { git = "https://github.com/dusk-network/plonk", rev = "436b19c", features = ["debug"] }
+naive-hash = { path = "../naive-hash" }
+naive-signature = { path = "../naive-signature" }
+rand = "0.8"
