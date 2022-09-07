@@ -24,6 +24,7 @@ mod polynomial;
 mod preamble;
 mod source;
 mod witness;
+mod zkdb;
 
 pub use config::{BaseConfig, Config};
 pub use constraint::{Constraint, EncodableConstraint};
@@ -34,6 +35,7 @@ pub use polynomial::{Polynomial, Selectors, WiredWitnesses};
 pub use preamble::Preamble;
 pub use source::EncodableSource;
 pub use witness::{EncodableWitness, Witness};
+pub use zkdb::{Breakpoint, State, ZkDebugger};
 
 pub(crate) mod bytes;
 pub(crate) use encoder::EncoderContext;
