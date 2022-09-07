@@ -23,5 +23,5 @@ CDF_OUTPUT=target/naive.cdf cargo run --release --manifest-path example-plonk-ci
 And finally we run the debugger application with the generated file
 
 ```shell
-cargo run --release --bin pdb -- target/naive.cdf
+cargo run --release --bin dusk-pdb -- target/naive.cdf
 ```

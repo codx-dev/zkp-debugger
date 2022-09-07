@@ -83,6 +83,11 @@ where
         CircuitDescription::from_reader(source).map(Self::from)
     }
 
+    /// Attempt to fetch the current constraint from the source
+    pub fn fetch_current_constraint(&mut self) -> io::Result<Constraint> {
+        self.cdf.fetch_constraint(self.constraint)
+    }
+
     /// Attempt to read an indexed constraint from the source
     pub fn fetch_constraint(&mut self, idx: usize) -> io::Result<Constraint> {
         self.cdf.fetch_constraint(idx)
