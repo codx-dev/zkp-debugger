@@ -2,9 +2,10 @@ use std::{fs, io};
 
 use clap::Parser;
 use crossterm::{cursor, execute, terminal};
-use dusk_tcdb::*;
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
+
+use dusk_pdb::prelude::*;
 
 fn main() {
     let args = Args::parse().resolve().expect("failed to resolve cli args");
