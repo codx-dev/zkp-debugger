@@ -1,0 +1,8 @@
+[package]
+name = "naive-signature"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dusk-plonk = { git = "https://github.com/dusk-network/plonk", rev = "436b19c" }
+naive-hash = { path = "../naive-hash" }
