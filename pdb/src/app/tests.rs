@@ -2,9 +2,16 @@ use std::io;
 use std::path::PathBuf;
 
 use crate::prelude::*;
+use crossterm::{cursor, execute, terminal};
 
 #[test]
 fn app_base_commands_wont_panic() -> io::Result<()> {
+    execute!(
+        io::stdout(),
+        terminal::EnterAlternateScreen,
+        cursor::MoveTo(0, 0)
+    )?;
+
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("failed to find root workspace dir")
@@ -33,6 +40,8 @@ fn app_base_commands_wont_panic() -> io::Result<()> {
     app.execute(Command::Restart)?;
     app.execute(Command::Witness { id: 1 })?;
     app.execute(Command::Open { path })?;
+
+    execute!(io::stdout(), terminal::LeaveAlternateScreen)?;
 
     Ok(())
 }
