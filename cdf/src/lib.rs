@@ -30,7 +30,7 @@ pub use config::{BaseConfig, Config};
 pub use constraint::{Constraint, EncodableConstraint};
 pub use decoder::{CircuitDescription, DecoderContext};
 pub use element::{DecodableElement, Element, EncodableElement, Scalar};
-pub use encoder::Encoder;
+pub use encoder::{Encoder, EncoderContextFileProvider, EncoderContextProvider};
 pub use polynomial::{Polynomial, Selectors, WiredWitnesses};
 pub use preamble::Preamble;
 pub use source::EncodableSource;
