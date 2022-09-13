@@ -1,6 +1,9 @@
 mod config;
 mod state;
 
+#[cfg(test)]
+mod tests;
+
 use std::fs::File;
 use std::io;
 use std::path::Path;
