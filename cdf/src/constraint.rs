@@ -6,7 +6,7 @@ use crate::{
 };
 
 /// Constraint representation that can be encoded into a CDF file
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EncodableConstraint {
     id: usize,
     polynomial: Polynomial,
@@ -21,6 +21,21 @@ impl EncodableConstraint {
             polynomial,
             source,
         }
+    }
+
+    /// Id of the constraint in the constraint system
+    pub const fn id(&self) -> usize {
+        self.id
+    }
+
+    /// Polynomial representation
+    pub const fn polynomial(&self) -> &Polynomial {
+        &self.polynomial
+    }
+
+    /// Source reference to be encoded
+    pub const fn source(&self) -> &EncodableSource {
+        &self.source
     }
 }
 
@@ -55,6 +70,16 @@ pub struct Constraint<'a> {
 }
 
 impl<'a> Constraint<'a> {
+    /// Constructor private to the crate because witness is suposed to be created from the cdf
+    /// file
+    pub(crate) const fn _new(id: usize, polynomial: Polynomial, source: DecodedSource<'a>) -> Self {
+        Self {
+            id,
+            polynomial,
+            source,
+        }
+    }
+
     /// Id of the constraint in the constraint system
     pub const fn id(&self) -> usize {
         self.id

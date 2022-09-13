@@ -29,6 +29,26 @@ impl EncodableWitness {
             source,
         }
     }
+
+    /// Id of the witness in the constraint system
+    pub const fn id(&self) -> usize {
+        self.id
+    }
+
+    /// Constraint that originated the witness
+    pub const fn constraint(&self) -> Option<usize> {
+        self.constraint
+    }
+
+    /// Value of the witness in the constraint system
+    pub const fn value(&self) -> &Scalar {
+        &self.value
+    }
+
+    /// Source reference to be encoded
+    pub const fn source(&self) -> &EncodableSource {
+        &self.source
+    }
 }
 
 impl Element for EncodableWitness {
@@ -65,6 +85,22 @@ pub struct Witness<'a> {
 }
 
 impl<'a> Witness<'a> {
+    /// Constructor private to the crate because witness is suposed to be created from the cdf
+    /// file
+    pub(crate) const fn _new(
+        id: usize,
+        constraint: Option<usize>,
+        value: Scalar,
+        source: DecodedSource<'a>,
+    ) -> Self {
+        Self {
+            id,
+            constraint,
+            value,
+            source,
+        }
+    }
+
     /// Id of the witness in the constraint system
     pub const fn id(&self) -> usize {
         self.id

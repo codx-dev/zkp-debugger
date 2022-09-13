@@ -1,5 +1,8 @@
 mod context;
 
+#[cfg(test)]
+mod tests;
+
 use std::borrow::Borrow;
 use std::fs::{File, OpenOptions};
 use std::io::{self, Seek, Write};
@@ -136,7 +139,7 @@ where
     T: io::Write + io::Seek,
 {
     /// Write all witnesses and constraints into the target
-    pub fn write_all<P>(&mut self) -> io::Result<usize>
+    pub fn write_all<P>(&mut self, provider: P) -> io::Result<usize>
     where
         P: EncoderContextProvider,
     {
@@ -162,7 +165,7 @@ where
                 .map(|x| n + x)
         })?;
 
-        let n = n + self.context.write_all::<P, _>(target)?;
+        let n = n + self.context.write_all(target, provider)?;
 
         Ok(n)
     }
