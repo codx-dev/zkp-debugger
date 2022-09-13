@@ -70,7 +70,7 @@ pub struct Constraint<'a> {
 }
 
 impl<'a> Constraint<'a> {
-    /// Constructor private to the crate because witness is suposed to be created from the cdf
+    /// Constructor private to the crate because constraint is suposed to be created from the cdf
     /// file
     pub(crate) const fn _new(id: usize, polynomial: Polynomial, source: DecodedSource<'a>) -> Self {
         Self {

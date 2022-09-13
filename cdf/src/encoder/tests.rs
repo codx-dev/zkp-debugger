@@ -230,6 +230,8 @@ fn prop(
         Err(e) => return TestResult::error(format!("{}", e)),
     };
 
+    let preamble = *circuit.preamble();
+
     for witness in witnesses {
         let GeneratedWitness { witness, contents } = witness;
 
@@ -237,6 +239,14 @@ fn prop(
             Ok(w) => w,
             Err(e) => return TestResult::error(format!("{}", e)),
         };
+
+        if witness.validate(&preamble).is_err() {
+            return TestResult::error("failed to validate encodable witness");
+        }
+
+        if w.validate(&preamble).is_err() {
+            return TestResult::error("failed to validate decoded witness");
+        }
 
         let line = witness.source().line();
         let col = witness.source().col();
@@ -272,6 +282,14 @@ fn prop(
             Ok(c) => c,
             Err(e) => return TestResult::error(format!("{}", e)),
         };
+
+        if constraint.validate(&preamble).is_err() {
+            return TestResult::error("failed to validate encodable constraint");
+        }
+
+        if c.validate(&preamble).is_err() {
+            return TestResult::error("failed to validate decoded constraint");
+        }
 
         let mut polynomial = constraint.polynomial().clone();
 
