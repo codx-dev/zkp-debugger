@@ -1,5 +1,6 @@
 use core::mem;
-use std::{fs, io, path::PathBuf};
+use std::path::{Path, PathBuf};
+use std::{fs, io};
 
 use serde::{Deserialize, Serialize};
 
@@ -21,9 +22,19 @@ pub trait BaseConfig: Sized + Default + Serialize + for<'a> Deserialize<'a> {
 
     /// Load a config instance from the config dir
     fn load() -> io::Result<Self> {
-        let path = Self::path().ok_or_else(|| {
-            io::Error::new(io::ErrorKind::Other, "unable to define configuration path")
-        })?;
+        Self::path()
+            .ok_or_else(|| {
+                io::Error::new(io::ErrorKind::Other, "unable to define configuration path")
+            })
+            .and_then(Self::load_path)
+    }
+
+    /// Load a config file from a given path
+    fn load_path<P>(path: P) -> io::Result<Self>
+    where
+        P: AsRef<Path>,
+    {
+        let path = path.as_ref();
 
         if !path.exists() {
             let config = Self::default();
@@ -116,4 +127,21 @@ impl DecodableElement for Config {
 
         Ok(())
     }
+}
+
+#[test]
+fn base_config_load_works() {
+    let dir = tempdir::TempDir::new("base_config").expect("failed to create temp dir");
+    let path = dir.path().join("config.toml");
+
+    let config = Config::load_path(&path).expect("failed to load config from path");
+
+    assert_eq!(config, Config::default());
+
+    let config = Config::load_path(&path).expect("failed to read config from path");
+    let c = *Config::default().with_zeroed_scalar_values(Config::default().zeroed_scalar_values);
+
+    assert_eq!(config, c);
+
+    Config::load().expect("failed to load default config");
 }

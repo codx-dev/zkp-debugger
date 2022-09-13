@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use std::{io, mem};
 
 use crate::{
@@ -65,13 +64,28 @@ impl DecodableElement for EncodedSource {
 pub struct EncodableSource {
     line: u64,
     col: u64,
-    path: PathBuf,
+    path: String,
 }
 
 impl EncodableSource {
     /// Create a new source instance
-    pub const fn new(line: u64, col: u64, path: PathBuf) -> Self {
+    pub const fn new(line: u64, col: u64, path: String) -> Self {
         Self { line, col, path }
+    }
+
+    /// Source line
+    pub const fn line(&self) -> u64 {
+        self.line
+    }
+
+    /// Source column
+    pub const fn col(&self) -> u64 {
+        self.col
+    }
+
+    /// Path to be encoded
+    pub fn path(&self) -> &str {
+        &self.path
     }
 }
 
