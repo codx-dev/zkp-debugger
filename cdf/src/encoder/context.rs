@@ -130,11 +130,17 @@ use std::path::PathBuf;
 
 #[test]
 fn path_cache_is_not_duplicated() {
-    let main = PathBuf::from("home").join("zkp-debugger").join("main.rs");
-    let lib = PathBuf::from("home").join("zkp-debugger").join("lib.rs");
+    let main = PathBuf::from("home")
+        .join("zkp-debugger")
+        .join("main.rs")
+        .display()
+        .to_string();
 
-    let main = format!("{}", main.display());
-    let lib = format!("{}", lib.display());
+    let lib = PathBuf::from("home")
+        .join("zkp-debugger")
+        .join("lib.rs")
+        .display()
+        .to_string();
 
     let mut context = EncoderContext::from_preamble(Default::default());
 
@@ -151,11 +157,17 @@ fn path_cache_is_not_duplicated() {
 
 #[test]
 fn context_derives_expected_map() {
-    let main = PathBuf::from("home").join("zkp-debugger").join("main.rs");
-    let lib = PathBuf::from("home").join("zkp-debugger").join("lib.rs");
+    let main = PathBuf::from("home")
+        .join("zkp-debugger")
+        .join("main.rs")
+        .display()
+        .to_string();
 
-    let main = format!("{}", main.display());
-    let lib = format!("{}", lib.display());
+    let lib = PathBuf::from("home")
+        .join("zkp-debugger")
+        .join("lib.rs")
+        .display()
+        .to_string();
 
     let mut context = EncoderContext::from_preamble(Default::default());
 

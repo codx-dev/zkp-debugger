@@ -220,14 +220,14 @@ fn prop(
     );
 
     if let Err(e) = encoder.write_all(disk) {
-        return TestResult::error(format!("{}", e));
+        return TestResult::error(e.to_string());
     }
 
     let cursor = encoder.into_inner();
 
     let mut circuit = match CircuitDescription::from_reader(cursor) {
         Ok(c) => c,
-        Err(e) => return TestResult::error(format!("{}", e)),
+        Err(e) => return TestResult::error(e.to_string()),
     };
 
     let preamble = *circuit.preamble();
@@ -237,7 +237,7 @@ fn prop(
 
         let w = match circuit.fetch_witness(witness.id()) {
             Ok(w) => w,
-            Err(e) => return TestResult::error(format!("{}", e)),
+            Err(e) => return TestResult::error(e.to_string()),
         };
 
         if witness.validate(&preamble).is_err() {
@@ -280,7 +280,7 @@ fn prop(
 
         let c = match circuit.fetch_constraint(constraint.id()) {
             Ok(c) => c,
-            Err(e) => return TestResult::error(format!("{}", e)),
+            Err(e) => return TestResult::error(e.to_string()),
         };
 
         if constraint.validate(&preamble).is_err() {
