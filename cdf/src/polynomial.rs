@@ -6,7 +6,7 @@ use crate::{
 };
 
 /// Polynomial selectors
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Selectors {
     /// Qm (mult) selector
     pub qm: Scalar,
@@ -100,7 +100,7 @@ impl DecodableElement for Selectors {
 }
 
 /// Polynomial witnesses allocated to a constraint system
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct WiredWitnesses {
     /// Wired `a`
     pub a: usize,
@@ -152,7 +152,7 @@ impl DecodableElement for WiredWitnesses {
 }
 
 /// PLONK polynomial expression representation with its selectors and witnesses.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Polynomial {
     /// Selectors of the polynomial
     pub selectors: Selectors,

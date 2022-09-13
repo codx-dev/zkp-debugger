@@ -10,12 +10,10 @@ use dusk_pdb::prelude::*;
 fn main() {
     let args = Args::parse().resolve().expect("failed to resolve cli args");
 
-    execute!(
-        io::stdout(),
-        terminal::EnterAlternateScreen,
-        cursor::MoveTo(0, 0)
-    )
-    .expect("failed to load app screen");
+    let mut stdout = io::stdout();
+
+    execute!(stdout, terminal::EnterAlternateScreen, cursor::MoveTo(0, 0))
+        .expect("failed to load app screen");
 
     let mut app = App::load(args).expect("failed to load app");
     let line_config = app.config().rustyline();
@@ -68,7 +66,7 @@ fn main() {
         }
     }
 
-    execute!(io::stdout(), terminal::LeaveAlternateScreen).expect("failed to unload app screen");
+    execute!(stdout, terminal::LeaveAlternateScreen).expect("failed to unload app screen");
 
     if let Some(h) = &history {
         if let Err(e) = rl.save_history(h) {
