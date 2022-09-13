@@ -1,12 +1,11 @@
 mod context;
 
 use std::borrow::Borrow;
-use std::fs::{self, File, OpenOptions};
+use std::fs::{File, OpenOptions};
 use std::io::{self, Seek, Write};
 use std::path::Path;
 
-pub use context::EncoderContext;
-use msgpacker::Message;
+pub use context::{EncoderContext, EncoderContextFileProvider, EncoderContextProvider};
 
 use crate::{Config, EncodableConstraint, EncodableElement, EncodableWitness, Preamble};
 
@@ -137,7 +136,10 @@ where
     T: io::Write + io::Seek,
 {
     /// Write all witnesses and constraints into the target
-    pub fn write_all(&mut self) -> io::Result<usize> {
+    pub fn write_all<P>(&mut self) -> io::Result<usize>
+    where
+        P: EncoderContextProvider,
+    {
         let Self {
             context,
             witnesses,
@@ -160,31 +162,7 @@ where
                 .map(|x| n + x)
         })?;
 
-        let mut source_cache = self.context.iter().collect::<Vec<_>>();
-
-        source_cache.as_mut_slice().sort_by_key(|(_path, idx)| *idx);
-
-        let source_cache_file_names = source_cache
-            .into_iter()
-            .map(|(path, _idx)| path.canonicalize())
-            .collect::<io::Result<Vec<_>>>()?;
-
-        let source_cache_contents = source_cache_file_names
-            .iter()
-            .map(fs::read_to_string)
-            .collect::<io::Result<Vec<_>>>()?
-            .into_iter()
-            .map(Message::String)
-            .collect::<Vec<_>>();
-
-        let source_cache_file_names = source_cache_file_names
-            .into_iter()
-            .map(|path| format!("{}", path.display()))
-            .map(Message::String)
-            .collect::<Vec<_>>();
-
-        let n = n + Message::Array(source_cache_file_names).pack(target)?;
-        let n = n + Message::Array(source_cache_contents).pack(target)?;
+        let n = n + self.context.write_all::<P, _>(target)?;
 
         Ok(n)
     }
