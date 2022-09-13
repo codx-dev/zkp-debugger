@@ -6,11 +6,9 @@ use crossterm::{cursor, execute, terminal};
 
 #[test]
 fn app_base_commands_wont_panic() -> io::Result<()> {
-    execute!(
-        io::stdout(),
-        terminal::EnterAlternateScreen,
-        cursor::MoveTo(0, 0)
-    )?;
+    let mut stdout = io::stdout();
+
+    execute!(stdout, terminal::EnterAlternateScreen, cursor::MoveTo(0, 0))?;
 
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -41,7 +39,7 @@ fn app_base_commands_wont_panic() -> io::Result<()> {
     app.execute(Command::Witness { id: 1 })?;
     app.execute(Command::Open { path })?;
 
-    execute!(io::stdout(), terminal::LeaveAlternateScreen)?;
+    execute!(stdout, terminal::LeaveAlternateScreen)?;
 
     Ok(())
 }
