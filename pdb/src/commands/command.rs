@@ -13,7 +13,8 @@ pub enum Command {
     Breakpoint {
         /// Source pattern
         source: String,
-        /// Optional line. If empty, will stop whenever the source file is opened
+        /// Optional line. If empty, will stop whenever the source file is
+        /// opened
         line: Option<u64>,
     },
     /// Continue the execution of the program
@@ -55,8 +56,12 @@ pub enum Command {
 }
 
 impl Command {
-    /// Attempt to parse a command from a binary tuple composed of an instruction and an argument
-    pub fn try_from_binary(instruction: &Instruction, arg: &str) -> io::Result<Self> {
+    /// Attempt to parse a command from a binary tuple composed of an
+    /// instruction and an argument
+    pub fn try_from_binary(
+        instruction: &Instruction,
+        arg: &str,
+    ) -> io::Result<Self> {
         match instruction {
             Instruction::Open => PathBuf::from(arg)
                 .canonicalize()
@@ -78,11 +83,9 @@ impl Command {
                     })
                     .map(String::from)?;
 
-                let line = args
-                    .next()
-                    .map(u64::from_str)
-                    .transpose()
-                    .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+                let line = args.next().map(u64::from_str).transpose().map_err(
+                    |e| io::Error::new(io::ErrorKind::InvalidInput, e),
+                )?;
 
                 Ok(Self::Breakpoint { source, line })
             }
@@ -133,8 +136,9 @@ fn try_from_binary_open_works() {
 fn try_from_binary_breakpoint_works() {
     let source = String::from("lib.rs");
 
-    let breakpoint = Command::try_from_binary(&Instruction::Breakpoint, &source)
-        .expect("failed to create breakpoint command");
+    let breakpoint =
+        Command::try_from_binary(&Instruction::Breakpoint, &source)
+            .expect("failed to create breakpoint command");
 
     let b = Command::Breakpoint {
         source: source.clone(),
@@ -144,9 +148,11 @@ fn try_from_binary_breakpoint_works() {
     assert_eq!(b, breakpoint);
 
     let line = 115;
-    let breakpoint =
-        Command::try_from_binary(&Instruction::Breakpoint, &format!("{}:{}", source, line))
-            .expect("failed to create breakpoint command");
+    let breakpoint = Command::try_from_binary(
+        &Instruction::Breakpoint,
+        &format!("{}:{}", source, line),
+    )
+    .expect("failed to create breakpoint command");
 
     let b = Command::Breakpoint {
         source,
@@ -159,8 +165,9 @@ fn try_from_binary_breakpoint_works() {
 #[test]
 fn try_from_binary_delete_works() {
     let id = 2387;
-    let delete = Command::try_from_binary(&Instruction::Delete, &format!("{}", id))
-        .expect("failed to create delete command");
+    let delete =
+        Command::try_from_binary(&Instruction::Delete, &format!("{}", id))
+            .expect("failed to create delete command");
     let d = Command::Delete { id };
 
     assert_eq!(d, delete);
@@ -179,8 +186,9 @@ fn try_from_binary_goto_works() {
 #[test]
 fn try_from_binary_witness_works() {
     let id = 2387;
-    let witness = Command::try_from_binary(&Instruction::Witness, &format!("{}", id))
-        .expect("failed to create witness command");
+    let witness =
+        Command::try_from_binary(&Instruction::Witness, &format!("{}", id))
+            .expect("failed to create witness command");
     let w = Command::Witness { id };
 
     assert_eq!(w, witness);

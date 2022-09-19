@@ -54,10 +54,10 @@ pub struct EncoderContext {
 }
 
 impl EncoderContext {
-    /// Start a new context
+    /// Start a new context.
     ///
-    /// This function is not intended to be called outside the encoder initialization so we don't
-    /// have duplicated contexts
+    /// This function is not intended to be called outside the encoder
+    /// initialization so we don't have duplicated contexts.
     pub(crate) fn from_preamble(preamble: Preamble) -> Self {
         Self {
             preamble,
@@ -65,17 +65,17 @@ impl EncoderContext {
         }
     }
 
-    /// Configuration used for the encoding
+    /// Configuration used for the encoding.
     pub const fn config(&self) -> &Config {
         &self.preamble.config
     }
 
-    /// Preamble of the context
+    /// Preamble of the context.
     pub const fn preamble(&self) -> &Preamble {
         &self.preamble
     }
 
-    /// Append a path to the encoding context, returning its index
+    /// Append a path to the encoding context, returning its index.
     pub fn add_path<P>(&mut self, path: P) -> usize
     where
         P: Into<String>,
@@ -88,7 +88,11 @@ impl EncoderContext {
 }
 
 impl EncoderContext {
-    pub fn write_all<P, W>(&self, mut writer: W, mut provider: P) -> io::Result<usize>
+    pub fn write_all<P, W>(
+        &self,
+        mut writer: W,
+        mut provider: P,
+    ) -> io::Result<usize>
     where
         P: EncoderContextProvider,
         W: io::Write,
@@ -174,9 +178,10 @@ fn context_derives_expected_map() {
     let idx_main = context.add_path(main.clone());
     let idx_lib = context.add_path(lib.clone());
 
-    let expected_map: HashMap<String, usize> = vec![(main.clone(), idx_main), (lib, idx_lib)]
-        .into_iter()
-        .collect();
+    let expected_map: HashMap<String, usize> =
+        vec![(main.clone(), idx_main), (lib, idx_lib)]
+            .into_iter()
+            .collect();
 
     // deref op should extend map methods to context
     assert_eq!(expected_map[&main], context[&main]);

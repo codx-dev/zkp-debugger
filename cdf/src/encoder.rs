@@ -8,9 +8,13 @@ use std::fs::{File, OpenOptions};
 use std::io::{self, Seek, Write};
 use std::path::Path;
 
-pub use context::{EncoderContext, EncoderContextFileProvider, EncoderContextProvider};
+pub use context::{
+    EncoderContext, EncoderContextFileProvider, EncoderContextProvider,
+};
 
-use crate::{Config, EncodableConstraint, EncodableElement, EncodableWitness, Preamble};
+use crate::{
+    Config, EncodableConstraint, EncodableElement, EncodableWitness, Preamble,
+};
 
 /// An encoder for CDF format
 #[derive(Debug)]
@@ -43,8 +47,14 @@ where
     }
 
     /// Create a new encoder
-    pub(crate) fn new(config: Config, witnesses: WI, constraints: CI, target: T) -> Self {
-        let preamble = Preamble::new(witnesses.len(), constraints.len(), config);
+    pub(crate) fn new(
+        config: Config,
+        witnesses: WI,
+        constraints: CI,
+        target: T,
+    ) -> Self {
+        let preamble =
+            Preamble::new(witnesses.len(), constraints.len(), config);
 
         Self::with_preamble(preamble, witnesses, constraints, target)
     }
@@ -63,7 +73,12 @@ where
     /// Initialize the encoder, filling a file with required bytes.
     ///
     /// Check [`File::set_len`]
-    pub fn init_file<P>(config: Config, witnesses: WI, constraints: CI, path: P) -> io::Result<Self>
+    pub fn init_file<P>(
+        config: Config,
+        witnesses: WI,
+        constraints: CI,
+        path: P,
+    ) -> io::Result<Self>
     where
         P: AsRef<Path>,
     {
@@ -121,7 +136,8 @@ where
 {
     /// Initialize the encoder, filling the buffer with required bytes.
     pub fn init_cursor(config: Config, witnesses: WI, constraints: CI) -> Self {
-        let preamble = Preamble::new(witnesses.len(), constraints.len(), config);
+        let preamble =
+            Preamble::new(witnesses.len(), constraints.len(), config);
         let len = preamble.source_cache_offset();
         let bytes = vec![0u8; len];
         let cursor = io::Cursor::new(bytes);

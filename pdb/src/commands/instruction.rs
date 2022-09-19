@@ -85,7 +85,11 @@ impl Instruction {
             })
     }
 
-    pub fn complete_binary(&self, parser: &CommandParser, token: &str) -> Option<String> {
+    pub fn complete_binary(
+        &self,
+        parser: &CommandParser,
+        token: &str,
+    ) -> Option<String> {
         match self {
             Instruction::Open => parser
                 .filename_completer

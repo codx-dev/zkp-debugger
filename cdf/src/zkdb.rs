@@ -11,7 +11,14 @@ use breakpoint::Breakpoints;
 pub use breakpoint::Breakpoint;
 pub use state::State;
 
-/// ZKP Debugger with CDF backend
+/// The Zk Debugger, it keeps track of breakpoints and the circuit description.
+///
+/// The Debugger maintains the encoded CDF file and breakpoints to provide
+/// operations. The operations on the source code returns a
+/// [`State`] which tells us where we are during debugging.
+///
+/// The Debugger is basically a [`CircuitDescription`] and breakpoints specified
+/// by the user.
 #[derive(Debug, Clone)]
 pub struct ZkDebugger<S> {
     breakpoints: Breakpoints,
@@ -54,21 +61,86 @@ impl<S> ZkDebugger<S> {
         self.cdf.preamble()
     }
 
-    /// Add a breakpoint to the provided source/line
+    /// Add a breakpoint to the provided source/line.
     ///
-    /// If `line` is `None`, the breakpoint will be triggered in any incidence of `source`
-    pub fn add_breakpoint(&mut self, source: String, line: Option<u64>) -> usize {
+    /// # Example
+    ///
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// use dusk_cdf::{CircuitDescription, ZkDebugger, Breakpoint};
+    ///
+    /// let circuit = CircuitDescription::open("../assets/test.cdf")?;
+    /// let mut debugger = ZkDebugger::from(circuit);
+    /// let breakpoint = Breakpoint {
+    ///     source: String::from("xyz"),
+    ///     line: Some(40)   
+    /// };
+    ///
+    /// debugger.add_breakpoint(String::from("xyz"), Some(40));
+    /// assert_eq!(debugger.fetch_breakpoint(1), Some(&breakpoint));
+    ///
+    /// # Ok(()) }
+    /// ```
+    ///
+    /// **Note**: If `line` is `None`, the breakpoint will be triggered in any
+    /// incidence of `source`
+    pub fn add_breakpoint(
+        &mut self,
+        source: String,
+        line: Option<u64>,
+    ) -> usize {
         self.breakpoints.add(source, line)
     }
 
     /// Remove a breakpoint with the provided id.
     ///
     /// If the id is not in the set, will return `None`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// use dusk_cdf::{CircuitDescription, ZkDebugger, Breakpoint};
+    ///
+    /// let circuit = CircuitDescription::open("../assets/test.cdf")?;
+    /// let mut debugger = ZkDebugger::from(circuit);
+    /// let breakpoint = Breakpoint {
+    ///     source: String::from("xyz"),
+    ///     line: Some(40)   
+    /// };
+    ///
+    /// debugger.add_breakpoint(String::from("xyz"), Some(40));
+    /// assert_eq!(debugger.fetch_breakpoint(1), Some(&breakpoint));
+    ///
+    /// debugger.remove_breakpoint(1);
+    /// assert_eq!(debugger.fetch_breakpoint(1), None);
+    ///
+    /// # Ok(()) }
+    /// ```
     pub fn remove_breakpoint(&mut self, id: usize) -> Option<Breakpoint> {
         self.breakpoints.remove(id)
     }
 
     /// Fetch a breakpoint from an id returned from `add_breakpoint`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// use dusk_cdf::{CircuitDescription, ZkDebugger, Breakpoint};
+    ///
+    /// let circuit = CircuitDescription::open("../assets/test.cdf")?;
+    /// let mut debugger = ZkDebugger::from(circuit);
+    /// let breakpoint = Breakpoint {
+    ///     source: String::from("xyz"),
+    ///     line: Some(40)   
+    /// };
+    ///
+    /// debugger.add_breakpoint(String::from("xyz"), Some(40));
+    /// assert_eq!(debugger.fetch_breakpoint(1), Some(&breakpoint));
+    ///
+    /// # Ok(()) }
+    /// ```
     pub fn fetch_breakpoint(&mut self, id: usize) -> Option<&Breakpoint> {
         self.breakpoints.find_breakpoint_from_id(id)
     }
@@ -78,30 +150,114 @@ impl<S> ZkDebugger<S>
 where
     S: io::Read + io::Seek,
 {
-    /// Create a CDF with the provided source and use it as backend for the debugger
+    /// Create a CDF with the provided source and use it as backend for the
+    /// debugger.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// use dusk_cdf::{CircuitDescription, ZkDebugger, Breakpoint};
+    /// use std::fs::File;
+    ///
+    /// let file = File::open("../assets/test.cdf")?;
+    /// let mut debugger = ZkDebugger::from_reader(file)?;
+    /// let breakpoint = Breakpoint {
+    ///     source: String::from("xyz"),
+    ///     line: Some(40)   
+    /// };
+    ///
+    /// debugger.add_breakpoint(String::from("xyz"), Some(40));
+    /// assert_eq!(debugger.fetch_breakpoint(1), Some(&breakpoint));
+    ///
+    /// # Ok(()) }
+    /// ```
     pub fn from_reader(source: S) -> io::Result<Self> {
         CircuitDescription::from_reader(source).map(Self::from)
     }
 
-    /// Attempt to fetch the current constraint from the source
+    /// Attempt to fetch the current constraint from the source.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// use dusk_cdf::ZkDebugger;
+    /// use std::fs::File;
+    ///
+    /// let file = File::open("../assets/test.cdf")?;
+    /// let mut debugger = ZkDebugger::from_reader(file)?;
+    /// let constraint = debugger.fetch_current_constraint()?;
+    ///
+    /// assert_eq!(constraint.id(), 0);
+    ///
+    /// # Ok(()) }
+    /// ```
     pub fn fetch_current_constraint(&mut self) -> io::Result<Constraint> {
         self.cdf.fetch_constraint(self.constraint)
     }
 
-    /// Attempt to read an indexed constraint from the source
+    /// Attempt to read an indexed constraint from the source.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// use dusk_cdf::ZkDebugger;
+    /// use std::fs::File;
+    ///
+    /// let file = File::open("../assets/test.cdf")?;
+    /// let mut debugger = ZkDebugger::from_reader(file)?;
+    /// let constraint = debugger.fetch_constraint(0)?;
+    ///
+    /// assert_eq!(constraint.id(), 0);
+    ///
+    /// # Ok(()) }
+    /// ```
     pub fn fetch_constraint(&mut self, idx: usize) -> io::Result<Constraint> {
         self.cdf.fetch_constraint(idx)
     }
 
-    /// Attempt to read an indexed witness from the source
+    /// Attempt to read an indexed witness from the source.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// use dusk_cdf::ZkDebugger;
+    /// use std::fs::File;
+    ///
+    /// let file = File::open("../assets/test.cdf")?;
+    /// let mut debugger = ZkDebugger::from_reader(file)?;
+    /// let witness = debugger.fetch_witness(0)?;
+    ///
+    /// assert_eq!(witness.id(), 0);
+    ///
+    /// # Ok(()) }
+    /// ```
     pub fn fetch_witness(&mut self, idx: usize) -> io::Result<Witness> {
         self.cdf.fetch_witness(idx)
     }
 
     /// Move to previous source/line.
     ///
-    /// May jump more than one constraint in case we have multiple constraints defined in a single
-    /// source/file tuple.
+    /// May jump more than one constraint in case we have multiple constraints
+    /// defined in a single source/file tuple.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// use dusk_cdf::{ZkDebugger, State};
+    /// use std::fs::File;
+    ///
+    /// let file = File::open("../assets/test.cdf")?;
+    /// let mut debugger = ZkDebugger::from_reader(file)?;
+    ///
+    /// assert_eq!(debugger.afore()?, State::Beginning);
+    ///
+    /// # Ok(()) }
+    /// ```
     pub fn afore(&mut self) -> io::Result<State> {
         let Self {
             breakpoints,
@@ -128,7 +284,8 @@ where
 
             let current = cdf.fetch_constraint(idx)?;
             let is_invalid = !current.polynomial().evaluation;
-            let different_line = source != current.name() || line != current.line();
+            let different_line =
+                source != current.name() || line != current.line();
 
             if different_line && is_invalid {
                 *constraint = idx;
@@ -152,6 +309,23 @@ where
     }
 
     /// Continue the execution until EOF, breakpoint, or invalid constraint.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// use dusk_cdf::{ZkDebugger, State};
+    /// use std::fs::File;
+    ///
+    /// let file = File::open("../assets/test.cdf")?;
+    /// let mut debugger = ZkDebugger::from_reader(file)?;
+    ///
+    /// assert_eq!(debugger.afore()?, State::Beginning);
+    /// debugger.cont(); // continue execution
+    /// assert_eq!(debugger.afore()?, State::Constraint { id : 7 }); // next constraint
+    ///
+    /// # Ok(()) }
+    /// ```
     pub fn cont(&mut self) -> io::Result<State> {
         let Self {
             breakpoints,
@@ -175,7 +349,8 @@ where
 
             let current = cdf.fetch_constraint(idx)?;
             let is_invalid = !current.polynomial().evaluation;
-            let different_line = source != current.name() || line != current.line();
+            let different_line =
+                source != current.name() || line != current.line();
 
             if different_line && is_invalid {
                 *constraint = idx;
@@ -196,7 +371,24 @@ where
         }
     }
 
-    /// Attempt to jump to a given constraint
+    /// Attempt to jump to a given constraint.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// use dusk_cdf::{ZkDebugger, State};
+    /// use std::fs::File;
+    ///
+    /// let file = File::open("../assets/test.cdf")?;
+    /// let mut debugger = ZkDebugger::from_reader(file)?;
+    ///
+    /// // goto 7 then go forward one step
+    /// assert_eq!(debugger.goto(7)?, State::Constraint { id : 7 });
+    /// assert_eq!(debugger.step()?, State::Constraint { id : 8 });
+    ///
+    /// # Ok(()) }
+    /// ```
     pub fn goto(&mut self, idx: usize) -> io::Result<State> {
         let Self {
             cdf, constraint, ..
@@ -225,8 +417,24 @@ where
 
     /// Move to next source/line.
     ///
-    /// May jump more than one constraint in case we have multiple constraints defined in a single
-    /// source/file tuple.
+    /// May jump more than one constraint in case we have multiple constraints
+    /// defined in a single source/file tuple.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// use dusk_cdf::{ZkDebugger, State};
+    /// use std::fs::File;
+    ///
+    /// let file = File::open("../assets/test.cdf")?;
+    /// let mut debugger = ZkDebugger::from_reader(file)?;
+    ///
+    /// assert_eq!(debugger.step()?, State::Constraint { id : 6 });
+    /// assert_eq!(debugger.step()?, State::Constraint { id : 7 });
+    ///
+    /// # Ok(()) }
+    /// ```
     pub fn step(&mut self) -> io::Result<State> {
         let Self {
             breakpoints,
@@ -250,7 +458,8 @@ where
 
             let current = cdf.fetch_constraint(idx)?;
             let is_invalid = !current.polynomial().evaluation;
-            let different_line = source != current.name() || line != current.line();
+            let different_line =
+                source != current.name() || line != current.line();
 
             if different_line && is_invalid {
                 *constraint = idx;
@@ -279,6 +488,25 @@ where
     }
 
     /// Reverse the execution until BOF, breakpoint, or invalid constraint.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// use dusk_cdf::{ZkDebugger, State, Breakpoint};
+    /// use std::fs::File;
+    ///
+    /// let file = File::open("../assets/test.cdf")?;
+    /// let mut debugger = ZkDebugger::from_reader(file)?;
+    /// let breakpoint = Breakpoint {
+    ///     source: String::from("xyz"),
+    ///     line: Some(40)   
+    /// };
+    ///
+    /// assert_eq!(debugger.turn()?, State::Beginning);
+    ///
+    /// # Ok(()) }
+    /// ```
     pub fn turn(&mut self) -> io::Result<State> {
         let Self {
             breakpoints,
@@ -305,7 +533,8 @@ where
 
             let current = cdf.fetch_constraint(idx)?;
             let is_invalid = !current.polynomial().evaluation;
-            let different_line = source != current.name() || line != current.line();
+            let different_line =
+                source != current.name() || line != current.line();
 
             if different_line && is_invalid {
                 *constraint = idx;

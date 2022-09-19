@@ -108,7 +108,9 @@ impl<S> App<S>
 where
     S: io::Read + io::Seek,
 {
-    fn fetch_current_constraint(&mut self) -> io::Result<(&Config, Constraint)> {
+    fn fetch_current_constraint(
+        &mut self,
+    ) -> io::Result<(&Config, Constraint)> {
         let (config, debugger) = self.debugger_mut()?;
         let constraint = debugger.fetch_current_constraint()?;
 
@@ -138,7 +140,11 @@ where
         Ok((config, witness))
     }
 
-    fn add_breakpoint(&mut self, source: String, line: Option<u64>) -> io::Result<()> {
+    fn add_breakpoint(
+        &mut self,
+        source: String,
+        line: Option<u64>,
+    ) -> io::Result<()> {
         let (_, debugger) = self.debugger_mut()?;
 
         if !debugger.source_name_contains(&source) {
@@ -245,7 +251,12 @@ impl<S> App<S> {
         &self.config
     }
 
-    fn render(config: &Config, name: &str, contents: &str, line: usize) -> io::Result<()> {
+    fn render(
+        config: &Config,
+        name: &str,
+        contents: &str,
+        line: usize,
+    ) -> io::Result<()> {
         println!("{}", name);
 
         let margin = config.render.margin;
@@ -298,7 +309,9 @@ impl<S> App<S> {
             .unwrap_or_else(|e| println!("{}", e))
     }
 
-    fn debugger_mut(&mut self) -> io::Result<(&mut Config, &mut ZkDebugger<S>)> {
+    fn debugger_mut(
+        &mut self,
+    ) -> io::Result<(&mut Config, &mut ZkDebugger<S>)> {
         let Self {
             debugger, config, ..
         } = self;

@@ -50,7 +50,12 @@ impl Clone for CommandParser {
 impl Hinter for CommandParser {
     type Hint = String;
 
-    fn hint(&self, line: &str, _pos: usize, _ctx: &Context<'_>) -> Option<Self::Hint> {
+    fn hint(
+        &self,
+        line: &str,
+        _pos: usize,
+        _ctx: &Context<'_>,
+    ) -> Option<Self::Hint> {
         self.parse_completable(line).ok().and_then(|c| match c {
             ParsedLine::Completable { completion, .. } => Some(completion),
             _ => None,
@@ -83,7 +88,8 @@ impl Default for CommandParser {
 
 impl CommandParser {
     fn split(line: &str) -> io::Result<Vec<String>> {
-        shellwords::split(line).map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))
+        shellwords::split(line)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))
     }
 
     /// Attempt to parse a command, providing completion information
@@ -96,12 +102,9 @@ impl CommandParser {
         }
 
         if tokens.len() == 1 && !ends_with_space {
-            match self
-                .instructions
-                .iter()
-                .enumerate()
-                .find_map(|(idx, ins)| ins.complete_unary(&tokens[0]).map(|c| (idx, c)))
-            {
+            match self.instructions.iter().enumerate().find_map(|(idx, ins)| {
+                ins.complete_unary(&tokens[0]).map(|c| (idx, c))
+            }) {
                 Some((idx, completion)) if completion.is_empty() => {
                     match self.instructions[idx].resolve_unary() {
                         Some(cmd) => return Ok(ParsedLine::Resolved { cmd }),
@@ -173,7 +176,10 @@ impl CommandParser {
         if tokens.len() != 2 {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                format!("single argument expected. syntax: {}", instruction.syntax()),
+                format!(
+                    "single argument expected. syntax: {}",
+                    instruction.syntax()
+                ),
             ));
         }
 
@@ -184,10 +190,9 @@ impl CommandParser {
 #[test]
 fn validate_return_all_instructions() {
     let flag = 0b1111111111111;
-    let result = CommandParser::default()
-        .instructions()
-        .iter()
-        .fold(0, |bit, instruction| match instruction {
+    let result = CommandParser::default().instructions().iter().fold(
+        0,
+        |bit, instruction| match instruction {
             Instruction::Afore => bit | 0b1000000000000,
             Instruction::Breakpoint => bit | 0b0100000000000,
             Instruction::Continue => bit | 0b0010000000000,
@@ -201,7 +206,8 @@ fn validate_return_all_instructions() {
             Instruction::Turn => bit | 0b0000000000100,
             Instruction::Quit => bit | 0b0000000000010,
             Instruction::Witness => bit | 0b0000000000001,
-        });
+        },
+    );
     assert_eq!(flag, result);
 
     let a = CommandParser::default().instructions().to_vec();
@@ -224,18 +230,17 @@ fn validate_parse_completable() {
 
     let cases_invalid = vec!["Open "];
 
-    let cases_instructions =
-        cases_instructions
-            .into_iter()
-            .map(|(input, completion, instruction)| {
-                (
-                    input,
-                    ParsedLine::Completable {
-                        instruction,
-                        completion: completion.to_string(),
-                    },
-                )
-            });
+    let cases_instructions = cases_instructions.into_iter().map(
+        |(input, completion, instruction)| {
+            (
+                input,
+                ParsedLine::Completable {
+                    instruction,
+                    completion: completion.to_string(),
+                },
+            )
+        },
+    );
 
     let cases_empty = cases_empty
         .into_iter()

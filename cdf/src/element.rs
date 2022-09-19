@@ -16,8 +16,11 @@ pub trait EncodableElement: Element {
     ///
     /// # Panics
     ///
-    /// The buffer must, provided a correct definition of [`Element::len`], contain enough bytes to
-    /// fully serialize the type. This can be checked via [`Element::validate_buffer`].
+    /// The buffer must, provided a correct definition of [`Element::len`],
+    /// contain enough bytes to fully serialize the type. This can be
+    /// checked via [`Element::validate_buffer`].
+    ///
+    /// For examples to implement, see [implementors](#implementors)
     fn to_buffer(&self, ctx: &mut EncoderContext, buf: &mut [u8]);
 
     /// Serialize the object into a bytes array.
@@ -33,14 +36,22 @@ pub trait EncodableElement: Element {
     /// Read an element into the buffer, returning the remainder bytes
     ///
     /// Assume its inside a validate buffer context
-    fn encode<'a>(&self, ctx: &mut EncoderContext, buf: &'a mut [u8]) -> &'a mut [u8] {
+    fn encode<'a>(
+        &self,
+        ctx: &mut EncoderContext,
+        buf: &'a mut [u8],
+    ) -> &'a mut [u8] {
         self.to_buffer(ctx, buf);
 
         &mut buf[Self::len(ctx.config())..]
     }
 
     /// Send the bytes representation of an element to a writer
-    fn try_to_writer<W>(&self, mut writer: W, ctx: &mut EncoderContext) -> io::Result<usize>
+    fn try_to_writer<W>(
+        &self,
+        mut writer: W,
+        ctx: &mut EncoderContext,
+    ) -> io::Result<usize>
     where
         W: io::Write,
     {
@@ -52,8 +63,11 @@ pub trait EncodableElement: Element {
 pub trait DecodableElement: Sized + Element {
     /// Deserialize the type from a given buffer
     ///
-    /// As in [`EncodableElement::to_buffer`] the implementor of this function can assume the buffer is big
-    /// enough to contain all the required bytes.
+    /// As in [`EncodableElement::to_buffer`] the implementor of this function
+    /// can assume the buffer is big enough to contain all the required
+    /// bytes.
+    ///
+    /// For examples to implement, see [implementors](#implementors)
     fn try_from_buffer_in_place<'a, 'b>(
         &'a mut self,
         ctx: &DecoderContext<'a>,
@@ -61,7 +75,10 @@ pub trait DecodableElement: Sized + Element {
     ) -> io::Result<()>;
 
     /// Create a new instance of the type from the provided buffer
-    fn try_from_buffer<'b>(ctx: &DecoderContext, buf: &'b [u8]) -> io::Result<Self> {
+    fn try_from_buffer<'b>(
+        ctx: &DecoderContext,
+        buf: &'b [u8],
+    ) -> io::Result<Self> {
         let mut slf = Self::default();
 
         slf.try_from_buffer_in_place(ctx, buf)?;
@@ -84,7 +101,10 @@ pub trait DecodableElement: Sized + Element {
     /// Write an element from the buffer, and return the remainder bytes
     ///
     /// Assume its inside a validate buffer context
-    fn try_decode<'a, 'b>(ctx: &DecoderContext<'a>, buf: &'b [u8]) -> io::Result<(Self, &'b [u8])> {
+    fn try_decode<'a, 'b>(
+        ctx: &DecoderContext<'a>,
+        buf: &'b [u8],
+    ) -> io::Result<(Self, &'b [u8])> {
         let mut slf = Self::default();
 
         let buf = slf.try_decode_in_place(ctx, buf)?;
@@ -93,7 +113,10 @@ pub trait DecodableElement: Sized + Element {
     }
 
     /// Fetch a new element from a context
-    fn try_from_reader<R>(ctx: &DecoderContext, mut reader: R) -> io::Result<Self>
+    fn try_from_reader<R>(
+        ctx: &DecoderContext,
+        mut reader: R,
+    ) -> io::Result<Self>
     where
         R: io::Read,
     {
@@ -105,15 +128,18 @@ pub trait DecodableElement: Sized + Element {
     }
 }
 
-/// Describe a CDF element
+/// Describe a CDF element.
+///
+/// For examples to implement, see [implementors](#implementors)
 pub trait Element: Default {
     /// Serializable length
     ///
-    /// Every element is a function of the config so seek/lookups will be constant-time.
+    /// Every element is a function of the config so seek/lookups will be
+    /// constant-time.
     ///
-    /// The serialized type must not contain more bytes than specified here. However, it might,
-    /// optionally, use less bytes. Regardless, it will consume this defined amount of bytes during
-    /// serialization.
+    /// The serialized type must not contain more bytes than specified here.
+    /// However, it might, optionally, use less bytes. Regardless, it will
+    /// consume this defined amount of bytes during serialization.
     fn len(ctx: &Config) -> usize;
 
     /// Perform the internal validations of the associated element

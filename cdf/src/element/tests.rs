@@ -86,7 +86,11 @@ impl Arbitrary for EncodedSource {
 fn elements() {
     fn prop<T>(len: u16, data: T) -> TestResult
     where
-        T: Arbitrary + EncodableElement + DecodableElement + PartialEq + fmt::Debug,
+        T: Arbitrary
+            + EncodableElement
+            + DecodableElement
+            + PartialEq
+            + fmt::Debug,
     {
         if 1024 < len {
             return TestResult::discard();

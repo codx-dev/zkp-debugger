@@ -1,7 +1,8 @@
 use std::{io, mem};
 
 use crate::{
-    Config, DecodableElement, DecoderContext, Element, EncodableElement, EncoderContext, Preamble,
+    Config, DecodableElement, DecoderContext, Element, EncodableElement,
+    EncoderContext, Preamble,
 };
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -163,10 +164,11 @@ impl<'a> DecodableElement for DecodedSource<'a> {
         self.line = line;
         self.col = col;
 
-        // the compiler isn't smart enough here to understand that `self` is `'a`; hence the
-        // context is also `'a`
+        // the compiler isn't smart enough here to understand that `self` is
+        // `'a`; hence the context is also `'a`
         //
-        // it is desirable to perform this safe change instead of taking every source as owned
+        // it is desirable to perform this safe change instead of taking every
+        // source as owned
         self.name = unsafe { mem::transmute::<&'x str, &'a str>(name) };
         self.contents = unsafe { mem::transmute::<&'x str, &'a str>(contents) };
 
