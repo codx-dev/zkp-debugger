@@ -2,8 +2,8 @@ use std::marker::PhantomData;
 use std::{io, mem};
 
 use crate::{
-    bytes, Config, DecodableElement, DecoderContext, Element, EncodableElement, EncoderContext,
-    Preamble,
+    bytes, Config, DecodableElement, DecoderContext, Element, EncodableElement,
+    EncoderContext, Preamble,
 };
 
 impl Element for bool {
@@ -78,7 +78,8 @@ macro_rules! impl_num {
 
 impl_num!(u64);
 
-// usize is implemented manually as u64 so the encoding will be platform agnostic
+// usize is implemented manually as u64 so the encoding will be platform
+// agnostic
 impl Element for usize {
     fn len(ctx: &Config) -> usize {
         u64::len(ctx)
@@ -134,8 +135,9 @@ where
     fn to_buffer(&self, ctx: &mut EncoderContext, buf: &mut [u8]) {
         let buf = self.is_some().encode(ctx, buf);
 
-        // Will fill the space with zeroes, if `None`. This will guarantee deterministic
-        // serialization, which will be desirable for checksum routines.
+        // Will fill the space with zeroes, if `None`. This will guarantee
+        // deterministic serialization, which will be desirable for
+        // checksum routines.
         match self {
             Some(t) => t.to_buffer(ctx, buf),
             None => buf[..Self::len(ctx.config()).saturating_sub(1)].fill(0),

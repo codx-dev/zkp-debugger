@@ -2,12 +2,14 @@ use std::io;
 use std::ops::{Deref, DerefMut};
 
 use crate::{
-    Config, DecodableElement, DecoderContext, Element, EncodableElement, EncoderContext, Preamble,
+    Config, DecodableElement, DecoderContext, Element, EncodableElement,
+    EncoderContext, Preamble,
 };
 
 /// Scalar field representation with up to 256 bits.
 ///
-/// This is agnostic to the curve choice and no canonical encoding assumption is involved.
+/// This is agnostic to the curve choice and no canonical encoding assumption is
+/// involved.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Scalar {
     scalar: [u8; Self::LEN],

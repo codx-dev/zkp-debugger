@@ -3,24 +3,30 @@
 
 //! The binary format for CDF is a dense linear encoding.
 //!
-//! A circuit is a compositions of items that are either [`Witness`] or [`Constraint`].
+//! A circuit is a compositions of items that are either [`Witness`] or
+//! [`Constraint`].
 //!
-//! A [`Witness`] is a constraint system allocated value that is represented by its identifier
-//! and [`Scalar`] value.
+//! A [`Witness`] is a constraint system allocated value that is represented by
+//! its identifier and [`Scalar`] value.
 //!
-//! A [`Constraint`] is a [`Polynomial`] expression represented as a gate of the circuit that will
-//! allow computation in the constraint system. It will evaluate to a [`bool`] that is the
-//! representation of the result of the gate.
+//! A [`Constraint`] is a [`Polynomial`] expression represented as a gate of the
+//! circuit that will allow computation in the constraint system. It will
+//! evaluate to a [`bool`] that is the representation of the result of the gate.
 //!
-//! A circuit description format file will contain a preamble with all its witnesses. Provided
-//! this, its witness index will reflect its line on the file, facilitating indexing.
+//! A circuit description format file will contain a preamble with all its
+//! witnesses. Provided this, its witness index will reflect its line on the
+//! file, facilitating indexing.
 
+/// CDF encoding/encoding configuration
 mod config;
 mod constraint;
+/// Decoding CDF format
 mod decoder;
 mod element;
+/// Encoding into the CDF format
 mod encoder;
 mod polynomial;
+/// Metadata of the CDF file
 mod preamble;
 mod source;
 mod witness;
@@ -30,7 +36,9 @@ pub use config::{BaseConfig, Config};
 pub use constraint::{Constraint, EncodableConstraint};
 pub use decoder::{CircuitDescription, DecoderContext};
 pub use element::{DecodableElement, Element, EncodableElement, Scalar};
-pub use encoder::{Encoder, EncoderContextFileProvider, EncoderContextProvider};
+pub use encoder::{
+    Encoder, EncoderContextFileProvider, EncoderContextProvider,
+};
 pub use polynomial::{Polynomial, Selectors, WiredWitnesses};
 pub use preamble::Preamble;
 pub use source::EncodableSource;

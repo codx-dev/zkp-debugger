@@ -1,11 +1,15 @@
 use std::io;
 
 use crate::{
-    Config, DecodableElement, DecodedSource, DecoderContext, Element, EncodableElement,
-    EncodableSource, EncoderContext, Preamble, Scalar,
+    Config, DecodableElement, DecodedSource, DecoderContext, Element,
+    EncodableElement, EncodableSource, EncoderContext, Preamble, Scalar,
 };
 
-/// Witness that can be encoded into a CDF file
+/// Analogous to [`Witness`]. This is a witness that can be encoded into a
+/// CDF file. It implements [`EncodableElement`].
+///
+/// This allows the [`Encoder`](struct.Encoder.html) to encode the constraint
+/// into a cdf file.
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EncodableWitness {
     id: usize,
@@ -53,7 +57,10 @@ impl EncodableWitness {
 
 impl Element for EncodableWitness {
     fn len(ctx: &Config) -> usize {
-        usize::len(ctx) + <Option<usize>>::len(ctx) + Scalar::len(ctx) + EncodableSource::len(ctx)
+        usize::len(ctx)
+            + <Option<usize>>::len(ctx)
+            + Scalar::len(ctx)
+            + EncodableSource::len(ctx)
     }
 
     fn validate(&self, preamble: &Preamble) -> io::Result<()> {
@@ -75,7 +82,7 @@ impl EncodableElement for EncodableWitness {
     }
 }
 
-/// Witness decoded from a CDF file
+/// Witness decoded from a CDF file. This implements [`DecodableElement`].
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Witness<'a> {
     id: usize,
@@ -85,8 +92,8 @@ pub struct Witness<'a> {
 }
 
 impl<'a> Witness<'a> {
-    /// Constructor private to the crate because witness is suposed to be created from the cdf
-    /// file
+    /// Constructor private to the crate because witness is suposed to be
+    /// created from the cdf file
     pub(crate) const fn _new(
         id: usize,
         constraint: Option<usize>,
@@ -102,36 +109,150 @@ impl<'a> Witness<'a> {
     }
 
     /// Id of the witness in the constraint system
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// use dusk_cdf::ZkDebugger;
+    /// use std::fs::File;
+    ///
+    /// let file = File::open("../assets/test.cdf")?;
+    /// let mut debugger = ZkDebugger::from_reader(file)?;
+    /// let witness = debugger.fetch_witness(0)?;
+    ///
+    /// assert_eq!(witness.id(), 0);
+    ///
+    /// # Ok(()) }
+    /// ```
     pub const fn id(&self) -> usize {
         self.id
     }
 
     /// Constraint that originated the witness
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// use dusk_cdf::ZkDebugger;
+    /// use std::fs::File;
+    ///
+    /// let file = File::open("../assets/test.cdf")?;
+    /// let mut debugger = ZkDebugger::from_reader(file)?;
+    /// let witness = debugger.fetch_witness(4)?;
+    ///
+    /// assert_eq!(witness.constraint(), None);
+    ///
+    /// # Ok(()) }
+    /// ```
     pub const fn constraint(&self) -> Option<usize> {
         self.constraint
     }
 
     /// Value of the witness in the constraint system
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// use dusk_cdf::{Scalar, ZkDebugger};
+    /// use std::fs::File;
+    ///
+    /// let file = File::open("../assets/test.cdf")?;
+    /// let mut debugger = ZkDebugger::from_reader(file)?;
+    /// let witness = debugger.fetch_witness(4)?;
+    /// let mut value = Scalar::default();
+    /// value[0] = 7;
+    ///
+    /// assert_eq!(*witness.value(), value);
+    ///
+    /// # Ok(()) }
+    /// ```
     pub const fn value(&self) -> &Scalar {
         &self.value
     }
 
-    /// Line of the source code
+    /// Line of the source code of the witness
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// use dusk_cdf::{Scalar, ZkDebugger};
+    /// use std::fs::File;
+    ///
+    /// let file = File::open("../assets/test.cdf")?;
+    /// let mut debugger = ZkDebugger::from_reader(file)?;
+    /// let witness = debugger.fetch_witness(4)?;
+    ///
+    /// assert_eq!(witness.line(), 33);
+    ///
+    /// # Ok(()) }
+    /// ```
     pub const fn line(&self) -> u64 {
         self.source.line
     }
 
-    /// Column of the source code
+    /// Get the column of the source code
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// use dusk_cdf::{Scalar, ZkDebugger};
+    /// use std::fs::File;
+    ///
+    /// let file = File::open("../assets/test.cdf")?;
+    /// let mut debugger = ZkDebugger::from_reader(file)?;
+    /// let witness = debugger.fetch_witness(4)?;
+    ///
+    /// assert_eq!(witness.col(), 34);
+    ///
+    /// # Ok(()) }
+    /// ```
     pub const fn col(&self) -> u64 {
         self.source.col
     }
 
     /// Source file name
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// use dusk_cdf::{Scalar, ZkDebugger};
+    /// use std::fs::File;
+    ///
+    /// let file = File::open("../assets/test.cdf")?;
+    /// let mut debugger = ZkDebugger::from_reader(file)?;
+    /// let witness = debugger.fetch_witness(4)?;
+    ///
+    /// assert_eq!(witness.name(), "/home/vlopes/dev/codex/tmp/plonk-dbg-lib/src/main.rs");
+    ///
+    /// # Ok(()) }
+    /// ```
     pub const fn name(&self) -> &str {
         self.source.name
     }
 
     /// Source code contents
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// use dusk_cdf::{Scalar, ZkDebugger};
+    /// use std::fs::File;
+    ///
+    /// let file = File::open("../assets/test.cdf")?;
+    /// let mut debugger = ZkDebugger::from_reader(file)?;
+    /// let witness = debugger.fetch_witness(2)?;
+    ///
+    /// assert_eq!(witness.contents().len(), 1168);
+    ///
+    /// # Ok(()) }
+    /// ```
     pub const fn contents(&self) -> &str {
         self.source.contents
     }
@@ -139,7 +260,10 @@ impl<'a> Witness<'a> {
 
 impl<'a> Element for Witness<'a> {
     fn len(ctx: &Config) -> usize {
-        usize::len(ctx) + <Option<usize>>::len(ctx) + Scalar::len(ctx) + DecodedSource::len(ctx)
+        usize::len(ctx)
+            + <Option<usize>>::len(ctx)
+            + Scalar::len(ctx)
+            + DecodedSource::len(ctx)
     }
 
     fn validate(&self, preamble: &Preamble) -> io::Result<()> {

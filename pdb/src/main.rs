@@ -24,7 +24,12 @@ fn main() {
     rl.set_helper(Some(app.parser().clone()));
 
     let history = dirs::data_local_dir()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "failed to fetch data local dir"))
+        .ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                "failed to fetch data local dir",
+            )
+        })
         .map(|p| p.join(env!("CARGO_BIN_NAME")))
         .and_then(|p| {
             fs::create_dir_all(&p)?;
@@ -66,7 +71,8 @@ fn main() {
         }
     }
 
-    execute!(stdout, terminal::LeaveAlternateScreen).expect("failed to unload app screen");
+    execute!(stdout, terminal::LeaveAlternateScreen)
+        .expect("failed to unload app screen");
 
     if let Some(h) = &history {
         if let Err(e) = rl.save_history(h) {

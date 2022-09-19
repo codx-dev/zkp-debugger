@@ -63,7 +63,8 @@ impl Arbitrary for GeneratedWitness {
         let id = 0;
         let constraint = None;
         let value = Scalar::arbitrary(g);
-        let GeneratedSource { source, contents } = GeneratedSource::arbitrary(g);
+        let GeneratedSource { source, contents } =
+            GeneratedSource::arbitrary(g);
 
         let witness = EncodableWitness::new(id, constraint, value, source);
 
@@ -85,7 +86,8 @@ pub struct GeneratedWitnesses {
 impl Arbitrary for GeneratedWitnesses {
     fn arbitrary(g: &mut Gen) -> Self {
         let count = usize::arbitrary(g) % LIMIT;
-        let witnesses = (0..count).map(|_| GeneratedWitness::arbitrary(g)).collect();
+        let witnesses =
+            (0..count).map(|_| GeneratedWitness::arbitrary(g)).collect();
 
         Self { witnesses }
     }
@@ -101,7 +103,8 @@ impl Arbitrary for GeneratedConstraint {
     fn arbitrary(g: &mut Gen) -> Self {
         let id = 0;
         let polynomial = Polynomial::arbitrary(g);
-        let GeneratedSource { source, contents } = GeneratedSource::arbitrary(g);
+        let GeneratedSource { source, contents } =
+            GeneratedSource::arbitrary(g);
 
         let constraint = EncodableConstraint::new(id, polynomial, source);
 
@@ -152,11 +155,9 @@ fn prop(
     let disk: HashMap<String, String> = witnesses
         .iter()
         .map(|w| (w.witness.source().path().to_string(), w.contents.clone()))
-        .chain(
-            constraints
-                .iter()
-                .map(|c| (c.constraint.source().path().to_string(), c.contents.clone())),
-        )
+        .chain(constraints.iter().map(|c| {
+            (c.constraint.source().path().to_string(), c.contents.clone())
+        }))
         .collect();
 
     let rng = &mut StdRng::seed_from_u64(seed);
@@ -265,7 +266,8 @@ fn prop(
             .then_some(Scalar::default())
             .unwrap_or_else(|| *witness.value());
 
-        let witness = Witness::_new(witness.id(), witness.constraint(), value, source);
+        let witness =
+            Witness::_new(witness.id(), witness.constraint(), value, source);
 
         if w != witness {
             return TestResult::error("unexpected decoded witness");
@@ -284,7 +286,9 @@ fn prop(
         };
 
         if constraint.validate(&preamble).is_err() {
-            return TestResult::error("failed to validate encodable constraint");
+            return TestResult::error(
+                "failed to validate encodable constraint",
+            );
         }
 
         if c.validate(&preamble).is_err() {

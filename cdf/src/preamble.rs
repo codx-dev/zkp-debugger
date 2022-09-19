@@ -1,11 +1,25 @@
 use std::{io, mem};
 
 use crate::{
-    Config, Constraint, DecodableElement, DecoderContext, Element, EncodableElement,
-    EncoderContext, Witness,
+    Config, Constraint, DecodableElement, DecoderContext, Element,
+    EncodableElement, EncoderContext, Witness,
 };
 
 /// Metadata information of the CDF file
+///
+/// # Example
+///
+/// ```
+/// # fn main() -> std::io::Result<()> {
+/// use dusk_cdf::CircuitDescription;
+///
+/// let circuit = CircuitDescription::open("../assets/test.cdf")?;
+/// let preamble = circuit.preamble();
+///
+/// assert_eq!(preamble.constraints, 10);
+///
+/// # Ok(()) }
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Preamble {
     /// Witnesses count
@@ -21,7 +35,22 @@ impl Preamble {
     pub const LEN: usize = 2 * mem::size_of::<usize>() + Config::LEN;
 
     /// Create a new preamble instance
-    pub const fn new(witnesses: usize, constraints: usize, config: Config) -> Self {
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// use dusk_cdf::{Preamble, Config};
+    ///
+    /// let preamble = Preamble::new(0, 0, Config::default());
+    ///
+    /// # Ok(()) }
+    /// ```
+    pub const fn new(
+        witnesses: usize,
+        constraints: usize,
+        config: Config,
+    ) -> Self {
         Self {
             witnesses,
             constraints,
@@ -30,11 +59,42 @@ impl Preamble {
     }
 
     /// Witness offset in CDF, from an index
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// use dusk_cdf::{Preamble, CircuitDescription};
+    ///
+    /// let circuit = CircuitDescription::open("../assets/test.cdf")?;
+    /// let preamble = circuit.preamble();
+    /// let witness_offset = preamble.witness_offset(7).unwrap();
+    ///
+    /// assert_eq!(witness_offset, 528);
+    ///
+    /// # Ok(()) }
+    /// ```
     pub fn witness_offset(&self, idx: usize) -> Option<usize> {
-        (idx < self.witnesses).then(|| Self::LEN + idx * Witness::len(&self.config))
+        (idx < self.witnesses)
+            .then(|| Self::LEN + idx * Witness::len(&self.config))
     }
 
     /// Constraint offset in CDF, from an index
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// use dusk_cdf::{Preamble, CircuitDescription};
+    ///
+    /// let circuit = CircuitDescription::open("../assets/test.cdf")?;
+    /// let preamble = circuit.preamble();
+    /// let constraint_offset = preamble.constraint_offset(7).unwrap();
+    ///
+    /// assert_eq!(constraint_offset, 4255);
+    ///
+    /// # Ok(()) }
+    /// ```
     pub fn constraint_offset(&self, idx: usize) -> Option<usize> {
         (idx < self.constraints).then(|| {
             Self::LEN
@@ -44,6 +104,21 @@ impl Preamble {
     }
 
     /// Cache starting position
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// use dusk_cdf::{Preamble, CircuitDescription};
+    ///
+    /// let circuit = CircuitDescription::open("../assets/test.cdf")?;
+    /// let preamble = circuit.preamble();
+    /// let source_cache_offset = preamble.source_cache_offset();
+    ///
+    /// assert_eq!(source_cache_offset, 5602);
+    ///
+    /// # Ok(()) }
+    /// ```
     pub fn source_cache_offset(&self) -> usize {
         Self::LEN
             + self.witnesses * Witness::len(&self.config)

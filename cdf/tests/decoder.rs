@@ -12,7 +12,8 @@ fn decoder_works() {
         .canonicalize()
         .expect("failed to find CDF test asset");
 
-    let mut cdf = CircuitDescription::open(asset).expect("failed to read test asset");
+    let mut cdf =
+        CircuitDescription::open(asset).expect("failed to read test asset");
 
     // assert data was fetched
     assert_ne!(cdf.preamble().witnesses, 0);

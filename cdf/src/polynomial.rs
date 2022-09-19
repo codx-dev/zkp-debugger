@@ -1,8 +1,8 @@
 use std::io;
 
 use crate::{
-    Config, DecodableElement, DecoderContext, Element, EncodableElement, EncoderContext, Preamble,
-    Scalar,
+    Config, DecodableElement, DecoderContext, Element, EncodableElement,
+    EncoderContext, Preamble, Scalar,
 };
 
 /// Polynomial selectors
@@ -200,7 +200,11 @@ impl DecodableElement for Polynomial {
 
 impl Polynomial {
     /// Create a new polynomial with evaluation to either correct or incorrect
-    pub const fn new(selectors: Selectors, witnesses: WiredWitnesses, evaluation: bool) -> Self {
+    pub const fn new(
+        selectors: Selectors,
+        witnesses: WiredWitnesses,
+        evaluation: bool,
+    ) -> Self {
         Self {
             selectors,
             witnesses,
