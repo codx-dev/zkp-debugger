@@ -73,11 +73,11 @@ impl Default for Readline {
 /// Constraint renderization parameters
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Render {
-    pub(crate) margin: usize,
-    pub(crate) header: bool,
-    pub(crate) grid: bool,
-    pub(crate) line_numbers: bool,
-    pub(crate) theme: String,
+    pub margin: usize,
+    pub header: bool,
+    pub grid: bool,
+    pub line_numbers: bool,
+    pub theme: String,
 }
 
 impl Default for Render {
@@ -99,8 +99,8 @@ impl Default for Render {
 /// App configuration
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Config {
-    pub(crate) readline: Readline,
-    pub(crate) render: Render,
+    pub readline: Readline,
+    pub render: Render,
 }
 
 impl Config {

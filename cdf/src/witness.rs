@@ -1,5 +1,7 @@
 use std::io;
 
+use serde::Serialize;
+
 use crate::{
     Config, DecodableElement, DecodedSource, DecoderContext, Element,
     EncodableElement, EncodableSource, EncoderContext, Preamble, Scalar,
@@ -10,7 +12,9 @@ use crate::{
 ///
 /// This allows the [`Encoder`](struct.Encoder.html) to encode the constraint
 /// into a cdf file.
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize,
+)]
 pub struct EncodableWitness {
     id: usize,
     constraint: Option<usize>,
@@ -79,6 +83,24 @@ impl EncodableElement for EncodableWitness {
         let buf = self.constraint.encode(ctx, buf);
         let buf = self.value.encode(ctx, buf);
         let _ = self.source.encode(ctx, buf);
+    }
+}
+
+impl From<Witness<'_>> for EncodableWitness {
+    fn from(w: Witness<'_>) -> Self {
+        let Witness {
+            id,
+            constraint,
+            value,
+            source,
+        } = w;
+
+        Self {
+            id,
+            constraint,
+            value,
+            source: source.into(),
+        }
     }
 }
 

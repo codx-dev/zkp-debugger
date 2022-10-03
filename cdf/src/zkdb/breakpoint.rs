@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::ops::Deref;
 
 use crate::Constraint;
 
@@ -57,6 +58,14 @@ impl Default for Breakpoints {
     }
 }
 
+impl Deref for Breakpoints {
+    type Target = HashMap<Breakpoint, usize>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.breakpoints
+    }
+}
+
 impl Breakpoints {
     /// Add a breakpoint to the collection of breakpoints.
     pub fn add(&mut self, source: String, line: Option<u64>) -> usize {
@@ -106,5 +115,11 @@ impl Breakpoints {
         self.breakpoints
             .iter()
             .find_map(|(b, idx)| (id == *idx).then_some(b))
+    }
+
+    /// Clear all breakpoints that matches the given source
+    pub fn clear(&mut self, source: &str) {
+        self.breakpoints
+            .retain(|b, _| !source.contains(b.source.as_str()));
     }
 }

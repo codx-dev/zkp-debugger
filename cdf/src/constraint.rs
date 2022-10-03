@@ -1,5 +1,7 @@
 use std::io;
 
+use serde::Serialize;
+
 use crate::{
     Config, DecodableElement, DecodedSource, DecoderContext, Element,
     EncodableElement, EncodableSource, EncoderContext, Polynomial, Preamble,
@@ -10,7 +12,9 @@ use crate::{
 ///
 /// This allows the [`Encoder`](struct.Encoder.html) to encode the constraint
 /// into a cdf file.
-#[derive(Debug, Default, Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
+#[derive(
+    Debug, Default, Clone, PartialEq, PartialOrd, Ord, Eq, Hash, Serialize,
+)]
 pub struct EncodableConstraint {
     id: usize,
     polynomial: Polynomial,
@@ -66,6 +70,22 @@ impl EncodableElement for EncodableConstraint {
         let buf = self.id.encode(ctx, buf);
         let buf = self.polynomial.encode(ctx, buf);
         let _ = self.source.encode(ctx, buf);
+    }
+}
+
+impl From<Constraint<'_>> for EncodableConstraint {
+    fn from(c: Constraint<'_>) -> Self {
+        let Constraint {
+            id,
+            polynomial,
+            source,
+        } = c;
+
+        Self {
+            id,
+            polynomial,
+            source: source.into(),
+        }
     }
 }
 

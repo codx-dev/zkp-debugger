@@ -17,24 +17,23 @@
 //! witnesses. Provided this, its witness index will reflect its line on the
 //! file, facilitating indexing.
 
-/// CDF encoding/encoding configuration
 mod config;
 mod constraint;
-/// Decoding CDF format
 mod decoder;
 mod element;
-/// Encoding into the CDF format
 mod encoder;
 mod polynomial;
-/// Metadata of the CDF file
 mod preamble;
 mod source;
 mod witness;
 mod zkdb;
 
+#[cfg(feature = "dap")]
+mod dap;
+
 pub use config::{BaseConfig, Config};
 pub use constraint::{Constraint, EncodableConstraint};
-pub use decoder::{CircuitDescription, DecoderContext};
+pub use decoder::{CircuitDescription, DecoderContext, DecoderDisplay};
 pub use element::{DecodableElement, Element, EncodableElement, Scalar};
 pub use encoder::{
     Encoder, EncoderContextFileProvider, EncoderContextProvider,
@@ -44,6 +43,9 @@ pub use preamble::Preamble;
 pub use source::EncodableSource;
 pub use witness::{EncodableWitness, Witness};
 pub use zkdb::{Breakpoint, State, ZkDebugger};
+
+#[cfg(feature = "dap")]
+pub use dap::{ZkDap, ZkDapBuilder, ZkEvaluate, ZkSourceDescription};
 
 pub(crate) mod bytes;
 pub(crate) use encoder::EncoderContext;
