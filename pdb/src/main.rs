@@ -1,82 +1,73 @@
-use std::{fs, io};
+use std::io;
 
+use bat::line_range::{LineRange, LineRanges};
+use bat::PrettyPrinter;
 use clap::Parser;
-use crossterm::{cursor, execute, terminal};
-use rustyline::error::ReadlineError;
-use rustyline::Editor;
+use crossterm::{cursor, execute, queue, terminal};
 
 use dusk_pdb::prelude::*;
 
-fn main() {
-    let args = Args::parse().resolve().expect("failed to resolve cli args");
+#[tokio::main]
+async fn main() -> io::Result<()> {
+    let args = Args::parse().resolve()?;
+    let mut app = App::load(args).await?;
+
+    let config = app.config().clone();
 
     let mut stdout = io::stdout();
+    execute!(stdout, terminal::EnterAlternateScreen, cursor::MoveTo(0, 0))?;
 
-    execute!(stdout, terminal::EnterAlternateScreen, cursor::MoveTo(0, 0))
-        .expect("failed to load app screen");
+    while let Some(Output {
+        contents,
+        console,
+        error,
+    }) = app.next_output().await
+    {
+        if let Some(Source {
+            name,
+            contents,
+            line,
+        }) = contents
+        {
+            queue!(
+                stdout,
+                terminal::Clear(terminal::ClearType::All),
+                cursor::MoveTo(1, 1)
+            )?;
 
-    let mut app = App::load(args).expect("failed to load app");
-    let line_config = app.config().rustyline();
+            println!("{}", name);
 
-    let bell = format!("{} ", '\u{03c0}');
-    let mut rl = Editor::<CommandParser>::with_config(line_config);
+            let margin = config.render.margin;
+            let range = LineRanges::from(vec![LineRange::new(
+                line.saturating_sub(margin),
+                line.saturating_add(margin),
+            )]);
 
-    rl.set_helper(Some(app.parser().clone()));
-
-    let history = dirs::data_local_dir()
-        .ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                "failed to fetch data local dir",
-            )
-        })
-        .map(|p| p.join(env!("CARGO_BIN_NAME")))
-        .and_then(|p| {
-            fs::create_dir_all(&p)?;
-            Ok(p.join("history"))
-        })
-        .ok();
-
-    if let Some(h) = &history {
-        if !h.exists() {
-            fs::OpenOptions::new().create_new(true).open(h).ok();
+            PrettyPrinter::new()
+                .input_from_bytes(contents.as_bytes())
+                .language("rust")
+                .header(config.render.header)
+                .grid(config.render.grid)
+                .line_numbers(config.render.line_numbers)
+                .line_ranges(range)
+                .highlight(line)
+                .theme(&config.render.theme)
+                .print()
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
         }
 
-        if h.exists() {
-            if let Err(e) = rl.load_history(h) {
-                eprintln!("failed to load commands history: {}", e);
-            }
+        for error in error {
+            println!("{}", error);
         }
-    }
 
-    loop {
-        let readline = rl.readline(&bell);
-
-        match readline {
-            Ok(line) => match app.parse_and_execute(&line) {
-                Ok(State::Continue) => (),
-                Ok(State::ShouldQuit) => break,
-                Err(e) => eprintln!("{}", e),
-            },
-            Err(ReadlineError::Interrupted) => {
-                //eprintln!("CTRL-C");
-            }
-            Err(ReadlineError::Eof) => {
-                eprintln!("CTRL-D");
-                break;
-            }
-            Err(err) => {
-                eprintln!("Error: {:?}", err);
-            }
+        for console in console {
+            println!("{}", console);
         }
     }
 
-    execute!(stdout, terminal::LeaveAlternateScreen)
-        .expect("failed to unload app screen");
+    execute!(stdout, terminal::LeaveAlternateScreen)?;
 
-    if let Some(h) = &history {
-        if let Err(e) = rl.save_history(h) {
-            eprintln!("failed to save commands history: {}", e);
-        }
-    }
+    println!("bye!");
+
+    Ok(())
 }

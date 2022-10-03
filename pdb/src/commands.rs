@@ -148,11 +148,11 @@ impl CommandParser {
     }
 
     /// Attempt to parse a command
-    pub fn parse(&self, line: &str) -> io::Result<Command> {
+    pub fn parse(&self, line: &str) -> io::Result<Option<Command>> {
         let tokens = Self::split(line)?;
 
         if tokens.is_empty() {
-            return Ok(Command::Empty);
+            return Ok(None);
         }
 
         let instruction = match self
@@ -170,7 +170,7 @@ impl CommandParser {
         };
 
         if let Some(command) = instruction.resolve_unary() {
-            return Ok(command);
+            return Ok(Some(command));
         }
 
         if tokens.len() != 2 {
@@ -183,7 +183,7 @@ impl CommandParser {
             ));
         }
 
-        Command::try_from_binary(instruction, &tokens[1])
+        Command::try_from_binary(instruction, &tokens[1]).map(Some)
     }
 }
 

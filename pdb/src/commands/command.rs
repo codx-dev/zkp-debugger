@@ -2,6 +2,15 @@ use std::io;
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use dap_reactor::prelude::{
+    ContinueArguments, CustomAddBreakpointArguments,
+    CustomRemoveBreakpointArguments, EvaluateArguments, GotoArguments,
+    InitializeArguments, ReverseContinueArguments, StepBackArguments,
+};
+use dap_reactor::request::Request;
+use dap_reactor::types::{Breakpoint, Source};
+use dusk_cdf::ZkEvaluate;
+
 use super::Instruction;
 
 /// A PDF command
@@ -24,8 +33,6 @@ pub enum Command {
         /// Id of the breakpoint
         id: usize,
     },
-    /// Empty command
-    Empty,
     /// Jump to a constraint
     Goto {
         /// Id of the constraint
@@ -109,6 +116,119 @@ impl Command {
                     instruction.syntax()
                 ),
             )),
+        }
+    }
+
+    pub fn request(self) -> Vec<Request> {
+        match self {
+            Command::Afore => vec![Request::StepBack {
+                arguments: StepBackArguments {
+                    thread_id: 0,
+                    single_thread: true,
+                    granularity: None,
+                },
+            }],
+
+            Command::Breakpoint { source, line } => {
+                vec![Request::CustomAddBreakpoint {
+                    arguments: CustomAddBreakpointArguments {
+                        breakpoint: Breakpoint {
+                            id: None,
+                            verified: true,
+                            message: None,
+                            source: Some(Source {
+                                name: Some(source),
+                                source_reference: None,
+                                presentation_hint: None,
+                                origin: None,
+                                sources: vec![],
+                                adapter_data: None,
+                                checksums: vec![],
+                            }),
+                            line,
+                            column: None,
+                            end_line: line,
+                            end_column: None,
+                            instruction_reference: None,
+                            offset: None,
+                        },
+                    },
+                }]
+            }
+
+            Command::Continue => vec![Request::Continue {
+                arguments: ContinueArguments {
+                    thread_id: 0,
+                    single_thread: true,
+                },
+            }],
+
+            Command::Delete { id } => vec![Request::CustomRemoveBreakpoint {
+                arguments: CustomRemoveBreakpointArguments { id: id as u64 },
+            }],
+
+            Command::Goto { id } => vec![Request::Goto {
+                arguments: GotoArguments {
+                    thread_id: 0,
+                    target_id: id as u64,
+                },
+            }],
+
+            Command::Help => vec![],
+
+            Command::Next => vec![Request::Next { arguments: None }],
+
+            Command::Open { path } => vec![
+                Request::Initialize {
+                    arguments: InitializeArguments {
+                        client_id: None,
+                        client_name: None,
+                        adapter_id: path.display().to_string(),
+                        locale: None,
+                        lines_start_at_1: true,
+                        column_start_at_1: true,
+                        path_format: None,
+                        supports_variable_type: false,
+                        supports_variable_paging: false,
+                        supports_run_in_terminal_request: false,
+                        supports_memory_references: false,
+                        supports_progress_reporting: false,
+                        supports_invalidated_event: false,
+                        supports_memory_event: false,
+                        supports_args_can_be_interpreted_by_shell: false,
+                    },
+                },
+                Request::Restart { arguments: None },
+            ],
+
+            Command::Print => vec![Request::Evaluate {
+                arguments: EvaluateArguments {
+                    expression: ZkEvaluate::CurrentConstraint.into(),
+                    frame_id: None,
+                    context: None,
+                    format: None,
+                },
+            }],
+
+            Command::Restart => vec![Request::Restart { arguments: None }],
+
+            Command::Turn => vec![Request::ReverseContinue {
+                arguments: ReverseContinueArguments {
+                    thread_id: 0,
+                    single_thread: true,
+                },
+            }],
+
+            Command::Quit => vec![Request::Terminate { arguments: None }],
+
+            Command::Witness { id } => vec![Request::Evaluate {
+                arguments: EvaluateArguments {
+                    expression: ZkEvaluate::Witness { id }.into(),
+                    frame_id: None,
+                    context: None,
+                    format: None,
+                },
+            }],
         }
     }
 }

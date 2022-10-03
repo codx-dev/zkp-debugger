@@ -1,3 +1,5 @@
+//! Encoding into the CDF format
+
 mod context;
 
 #[cfg(test)]

@@ -1,8 +1,10 @@
 mod breakpoint;
 mod state;
 
+use std::fs::File;
 use std::io;
 use std::ops::{Deref, DerefMut};
+use std::path::Path;
 
 use crate::{CircuitDescription, Config, Constraint, Preamble, Witness};
 
@@ -141,8 +143,29 @@ impl<S> ZkDebugger<S> {
     ///
     /// # Ok(()) }
     /// ```
-    pub fn fetch_breakpoint(&mut self, id: usize) -> Option<&Breakpoint> {
+    pub fn fetch_breakpoint(&self, id: usize) -> Option<&Breakpoint> {
         self.breakpoints.find_breakpoint_from_id(id)
+    }
+
+    /// Underlying breakpoints repository
+    pub const fn breakpoints(&self) -> &Breakpoints {
+        &self.breakpoints
+    }
+
+    /// Remove all breakpoints that matches the source name
+    pub fn clear_breakpoints(&mut self, source: &str) {
+        self.breakpoints.clear(source);
+    }
+}
+
+impl ZkDebugger<File> {
+    /// Use a path to create a new circuit description. This uses
+    /// [`CircuitDescription::from_reader`].
+    pub fn open<P>(path: P) -> io::Result<Self>
+    where
+        P: AsRef<Path>,
+    {
+        CircuitDescription::open(path).map(Self::from)
     }
 }
 

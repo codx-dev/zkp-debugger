@@ -1,5 +1,7 @@
 use std::{io, mem};
 
+use serde::Serialize;
+
 use crate::{
     Config, DecodableElement, DecoderContext, Element, EncodableElement,
     EncoderContext, Preamble,
@@ -61,7 +63,9 @@ impl DecodableElement for EncodedSource {
 }
 
 /// Source file tripler that can be encoded into a CDF file
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize,
+)]
 pub struct EncodableSource {
     line: u64,
     col: u64,
@@ -87,6 +91,20 @@ impl EncodableSource {
     /// Path to be encoded
     pub fn path(&self) -> &str {
         &self.path
+    }
+}
+
+impl From<DecodedSource<'_>> for EncodableSource {
+    fn from(s: DecodedSource<'_>) -> Self {
+        let DecodedSource {
+            line, col, name, ..
+        } = s;
+
+        Self {
+            line,
+            col,
+            path: name.into(),
+        }
     }
 }
 

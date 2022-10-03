@@ -1,10 +1,14 @@
+//! Decoding CDF format
+
 mod context;
+mod display;
 
 use std::fs::{File, OpenOptions};
-use std::io;
 use std::path::Path;
+use std::{fmt, io};
 
 pub use context::DecoderContext;
+pub use display::DecoderDisplay;
 use msgpacker::Message;
 
 use crate::{Constraint, DecodableElement, Preamble, Witness};
@@ -21,7 +25,23 @@ pub struct CircuitDescription<S> {
     source: S,
 }
 
+impl<S> fmt::Display for CircuitDescription<S>
+where
+    S: DecoderDisplay,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        <String as fmt::Display>::fmt(&self.source.to_string(), f)
+    }
+}
+
 impl<S> CircuitDescription<S> {
+    pub(crate) fn sources(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.source_names
+            .iter()
+            .map(|s| s.as_str())
+            .zip(self.source_contents.iter().map(|s| s.as_str()))
+    }
+
     pub(crate) fn context(&mut self) -> (DecoderContext, &mut S) {
         let Self {
             preamble,

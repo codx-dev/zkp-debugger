@@ -1,3 +1,5 @@
+//! CDF encoding/encoding configuration
+
 use core::mem;
 use std::path::{Path, PathBuf};
 use std::{fs, io};

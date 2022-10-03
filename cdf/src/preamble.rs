@@ -1,3 +1,5 @@
+//! Metadata of the CDF file
+
 use std::{io, mem};
 
 use crate::{
