@@ -117,7 +117,7 @@ impl Drop for Input {
 
 #[test]
 fn init_works() -> io::Result<()> {
-    use dusk_cdf::BaseConfig;
+    use toml_base_config::BaseConfig;
 
     let config = Config::load()?;
 
