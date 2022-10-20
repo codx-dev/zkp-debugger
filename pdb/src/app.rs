@@ -19,8 +19,9 @@ use dap_reactor::reactor::{
 use dap_reactor::request::Request;
 use dap_reactor::response::Response;
 use dap_reactor::types::SourceReference;
-use dusk_cdf::{BaseConfig, ZkSourceDescription};
+use dusk_cdf::ZkSourceDescription;
 use tokio::sync::{mpsc, RwLock};
+use toml_base_config::BaseConfig;
 
 use config::Config;
 use input::Input;

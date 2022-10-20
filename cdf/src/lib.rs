@@ -31,7 +31,7 @@ mod zkdb;
 #[cfg(feature = "dap")]
 mod dap;
 
-pub use config::{BaseConfig, Config};
+pub use config::Config;
 pub use constraint::{Constraint, EncodableConstraint};
 pub use decoder::{CircuitDescription, DecoderContext, DecoderDisplay};
 pub use element::{DecodableElement, Element, EncodableElement, Scalar};

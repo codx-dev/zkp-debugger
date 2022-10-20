@@ -1,8 +1,8 @@
 use std::time;
 
-use dusk_cdf::BaseConfig;
 use rustyline::Config as RustylineConfig;
 use serde::{Deserialize, Serialize};
+use toml_base_config::BaseConfig;
 
 /// Readline configuration
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
