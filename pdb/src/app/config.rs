@@ -1,8 +1,8 @@
 use std::time;
 
-use dusk_cdf::BaseConfig;
 use rustyline::Config as RustylineConfig;
 use serde::{Deserialize, Serialize};
+use toml_base_config::BaseConfig;
 
 /// Readline configuration
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -73,16 +73,19 @@ impl Default for Readline {
 /// Constraint renderization parameters
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Render {
+    pub delay: u64,
     pub margin: usize,
     pub header: bool,
     pub grid: bool,
     pub line_numbers: bool,
     pub theme: String,
+    pub timeout: u64,
 }
 
 impl Default for Render {
     fn default() -> Self {
         Self {
+            delay: 300,
             margin: 10,
             header: true,
             grid: true,
@@ -92,6 +95,7 @@ impl Default for Render {
                 _ => "gruvbox-dark",
             }
             .to_string(),
+            timeout: 500,
         }
     }
 }
@@ -108,8 +112,23 @@ impl Config {
     pub fn rustyline(&self) -> RustylineConfig {
         self.readline.into()
     }
+
+    /// Return the configured renderization delay
+    pub const fn render_delay(&self) -> time::Duration {
+        time::Duration::from_millis(self.render.delay)
+    }
+
+    /// Return the configured renderization timeout
+    pub const fn render_timeout(&self) -> time::Duration {
+        time::Duration::from_millis(self.render.timeout)
+    }
 }
 
 impl BaseConfig for Config {
     const PACKAGE: &'static str = env!("CARGO_PKG_NAME");
+}
+
+#[test]
+fn load_works() {
+    Config::load().expect("failed to load config");
 }

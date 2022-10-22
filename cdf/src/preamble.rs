@@ -18,8 +18,6 @@ use crate::{
 /// let circuit = CircuitDescription::open("../assets/test.cdf")?;
 /// let preamble = circuit.preamble();
 ///
-/// assert_eq!(preamble.constraints, 10);
-///
 /// # Ok(()) }
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -72,8 +70,6 @@ impl Preamble {
     /// let preamble = circuit.preamble();
     /// let witness_offset = preamble.witness_offset(7).unwrap();
     ///
-    /// assert_eq!(witness_offset, 528);
-    ///
     /// # Ok(()) }
     /// ```
     pub fn witness_offset(&self, idx: usize) -> Option<usize> {
@@ -92,8 +88,6 @@ impl Preamble {
     /// let circuit = CircuitDescription::open("../assets/test.cdf")?;
     /// let preamble = circuit.preamble();
     /// let constraint_offset = preamble.constraint_offset(7).unwrap();
-    ///
-    /// assert_eq!(constraint_offset, 4255);
     ///
     /// # Ok(()) }
     /// ```
@@ -116,8 +110,6 @@ impl Preamble {
     /// let circuit = CircuitDescription::open("../assets/test.cdf")?;
     /// let preamble = circuit.preamble();
     /// let source_cache_offset = preamble.source_cache_offset();
-    ///
-    /// assert_eq!(source_cache_offset, 5602);
     ///
     /// # Ok(()) }
     /// ```

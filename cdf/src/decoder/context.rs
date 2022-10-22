@@ -42,3 +42,11 @@ impl<'a> DecoderContext<'a> {
         self.source_contents.get(id).map(|s| s.as_str())
     }
 }
+
+#[test]
+fn base_is_valid() {
+    assert_eq!(
+        DecoderContext::new(&Config::default(), &[], &[]),
+        DecoderContext::BASE
+    );
+}

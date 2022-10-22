@@ -31,7 +31,7 @@ mod zkdb;
 #[cfg(feature = "dap")]
 mod dap;
 
-pub use config::{BaseConfig, Config};
+pub use config::Config;
 pub use constraint::{Constraint, EncodableConstraint};
 pub use decoder::{CircuitDescription, DecoderContext, DecoderDisplay};
 pub use element::{DecodableElement, Element, EncodableElement, Scalar};
@@ -45,7 +45,9 @@ pub use witness::{EncodableWitness, Witness};
 pub use zkdb::{Breakpoint, State, ZkDebugger};
 
 #[cfg(feature = "dap")]
-pub use dap::{ZkDap, ZkDapBuilder, ZkEvaluate, ZkSourceDescription};
+pub use dap::{
+    ZkDap, ZkDapBuilder, ZkRequest, ZkResponse, ZkSource, ZkWitness,
+};
 
 pub(crate) mod bytes;
 pub(crate) use encoder::EncoderContext;

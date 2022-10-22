@@ -75,8 +75,6 @@ impl<S> CircuitDescription<S> {
     ///
     /// let circuit = CircuitDescription::open("../assets/test.cdf")?;
     ///
-    /// assert_eq!(circuit.source_name_contains("/home/vlopes/dev/codex/tmp/plonk-dbg-lib/src/main.rs"), true);
-    ///
     /// # Ok(()) }
     /// ```
     pub fn source_name_contains(&self, name: &str) -> bool {
@@ -95,8 +93,6 @@ impl CircuitDescription<File> {
     /// use dusk_cdf::CircuitDescription;
     ///
     /// let circuit = CircuitDescription::open("../assets/test.cdf")?;
-    ///
-    /// assert_eq!(circuit.preamble().constraints, 10);
     ///
     /// # Ok(()) }
     /// ```
@@ -130,9 +126,6 @@ where
     ///
     /// let file = File::open("../assets/test.cdf")?;
     /// let circuit = CircuitDescription::from_reader(file)?;
-    ///
-    /// assert_eq!(circuit.preamble().witnesses, 15);
-    /// assert_eq!(circuit.preamble().constraints, 10);
     ///
     /// # Ok(()) }
     /// ```

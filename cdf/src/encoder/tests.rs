@@ -251,13 +251,13 @@ fn prop(
 
         let line = witness.source().line();
         let col = witness.source().col();
-        let name = witness.source().path();
+        let name = witness.source().decoded_path();
         let contents = contents.as_str();
 
         let source = DecodedSource {
             line,
             col,
-            name,
+            name: &name,
             contents,
         };
 
@@ -303,13 +303,13 @@ fn prop(
 
         let line = constraint.source().line();
         let col = constraint.source().col();
-        let name = constraint.source().path();
+        let name = constraint.source().decoded_path();
         let contents = contents.as_str();
 
         let source = DecodedSource {
             line,
             col,
-            name,
+            name: &name,
             contents,
         };
 

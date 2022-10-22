@@ -168,3 +168,41 @@ fn complete_binary_works() {
 
     assert_eq!("oml", completion);
 }
+
+#[test]
+fn help_generates_output() {
+    Instruction::Afore.help();
+    Instruction::Breakpoint.help();
+    Instruction::Continue.help();
+    Instruction::Delete.help();
+    Instruction::Goto.help();
+    Instruction::Help.help();
+    Instruction::Next.help();
+    Instruction::Open.help();
+    Instruction::Print.help();
+    Instruction::Restart.help();
+    Instruction::Turn.help();
+    Instruction::Quit.help();
+    Instruction::Witness.help();
+
+    Instruction::Afore.syntax();
+    Instruction::Breakpoint.syntax();
+    Instruction::Continue.syntax();
+    Instruction::Delete.syntax();
+    Instruction::Goto.syntax();
+    Instruction::Help.syntax();
+    Instruction::Next.syntax();
+    Instruction::Open.syntax();
+    Instruction::Print.syntax();
+    Instruction::Restart.syntax();
+    Instruction::Turn.syntax();
+    Instruction::Quit.syntax();
+    Instruction::Witness.syntax();
+}
+
+#[test]
+fn unary_resolves() {
+    Instruction::Quit
+        .resolve_unary()
+        .expect("failed to resolve unary");
+}

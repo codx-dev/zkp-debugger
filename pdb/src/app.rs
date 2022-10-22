@@ -1,88 +1,127 @@
 mod config;
+mod context;
 mod input;
 mod output;
 
-use std::collections::HashMap;
-use std::io;
-use std::sync::Arc;
+use std::{io, net};
 
 use crate::args::ParsedArgs;
 use crate::commands::Command;
 use dap_reactor::prelude::{
-    CustomAddBreakpointResponse, CustomRemoveBreakpointResponse,
-    EvaluateResponse, Event, LoadedSourcesResponse, Source as DapSource,
+    Event, Source as DapSource, StackTraceArguments, StackTraceResponse,
+    ThreadReason, VariablesResponse,
 };
+use dap_reactor::prelude::{SourceReference, StackFrame};
 use dap_reactor::protocol::ProtocolResponseError;
-use dap_reactor::reactor::{
-    Client, ClientBuilder, ClientRequest, ClientResponse,
-};
+use dap_reactor::reactor::{Client, ClientBuilder, ClientResponse};
 use dap_reactor::request::Request;
 use dap_reactor::response::Response;
-use dap_reactor::types::SourceReference;
-use dusk_cdf::{BaseConfig, ZkSourceDescription};
-use tokio::sync::{mpsc, RwLock};
+use dusk_cdf::{ZkRequest, ZkResponse};
+use tokio::sync::mpsc;
+use tokio::time;
+use toml_base_config::BaseConfig;
 
 use config::Config;
+use context::Context;
 use input::Input;
 
 pub use output::{Output, Source};
 
 pub struct App {
-    config: Config,
+    context: Context,
     input: Input,
-    requests: mpsc::Sender<ClientRequest>,
     outputs: mpsc::Receiver<Output>,
 }
 
 impl App {
     pub const fn config(&self) -> &Config {
-        &self.config
+        self.context.config()
     }
 
     async fn handle_events(
-        contents: Arc<RwLock<HashMap<String, String>>>,
+        context: Context,
         mut events: mpsc::Receiver<Event>,
-        outputs: mpsc::Sender<Output>,
     ) {
         while let Some(event) = events.recv().await {
-            if let Event::Stopped {
-                description: Some(d),
-                ..
-            } = event
-            {
-                if let Ok(ZkSourceDescription { name, line }) =
-                    ZkSourceDescription::try_from(d.as_str())
-                {
-                    if let Some(contents) =
-                        contents.read().await.get(&name).cloned()
-                    {
-                        outputs
-                            .send(Output {
-                                contents: Some(Source {
-                                    name,
-                                    contents,
-                                    line: line as usize,
-                                }),
-                                console: vec![],
-                                error: vec![],
-                            })
-                            .await
-                            .ok();
+            let mut result = None;
+
+            match event {
+                Event::Initialized => {
+                    if let Some(path) = context.path().await {
+                        context.lock_contents().await;
+
+                        result.replace(
+                            context
+                                .send_request(ZkRequest::LoadCdf { path })
+                                .await,
+                        );
                     }
                 }
+
+                Event::Thread {
+                    reason: ThreadReason::Started,
+                    ..
+                } => {
+                    result.replace(
+                        context.send_request(ZkRequest::SourceContents).await,
+                    );
+                }
+
+                Event::Stopped { thread_id, .. } => {
+                    result.replace(
+                        context
+                            .send_request(Request::StackTrace {
+                                arguments: StackTraceArguments {
+                                    thread_id: thread_id.unwrap_or(0),
+                                    start_frame: None,
+                                    levels: None,
+                                    format: None,
+                                },
+                            })
+                            .await,
+                    );
+                }
+
+                Event::Thread {
+                    reason: ThreadReason::Exited,
+                    ..
+                } => {
+                    result.replace(
+                        context
+                            .send_output(Output {
+                                contents: None,
+                                console: vec!["execution finished".into()],
+                                error: vec![],
+                            })
+                            .await,
+                    );
+                }
+
+                _ => (),
+            }
+
+            if let Some(Err(e)) = result {
+                context.send_error_output(e).await;
             }
         }
     }
 
     async fn handle_responses(
-        contents: Arc<RwLock<HashMap<String, String>>>,
-        requests: mpsc::Sender<ClientRequest>,
+        context: Context,
         mut responses: mpsc::Receiver<ClientResponse>,
-        outputs: mpsc::Sender<Output>,
     ) {
         while let Some(ClientResponse { response, .. }) = responses.recv().await
         {
+            let mut result: Option<io::Result<()>> = None;
+            let mut custom: Option<ZkResponse> = None;
+
             match response {
+                Response::Custom { body } => {
+                    ZkResponse::try_from(body.as_ref())
+                        .map(|r| custom.replace(r))
+                        .ok();
+                }
+
                 Response::Error {
                     command,
                     error: ProtocolResponseError { message, .. },
@@ -93,136 +132,151 @@ impl App {
                         error.push_str(format!(": {}", m).as_str());
                     }
 
-                    outputs
-                        .send(Output {
-                            contents: None,
-                            console: vec![],
-                            error: vec![error],
-                        })
-                        .await
-                        .ok();
+                    context.send_error_output(error).await;
                 }
 
-                Response::Evaluate {
-                    body: EvaluateResponse { result, .. },
+                Response::StackTrace {
+                    body: StackTraceResponse { stack_frames, .. },
                 } => {
-                    // TODO pretty print the eval result
-                    outputs
-                        .send(Output {
+                    if let Some(StackFrame {
+                        source:
+                            Some(DapSource {
+                                source_reference:
+                                    Some(SourceReference::Path(path)),
+                                ..
+                            }),
+                        line,
+                        ..
+                    }) = stack_frames.into_iter().next()
+                    {
+                        if let Some(contents) = context.contents(&path).await {
+                            let output = Output {
+                                contents: Some(Source {
+                                    name: path,
+                                    contents,
+                                    line: line as usize,
+                                }),
+                                console: vec![],
+                                error: vec![],
+                            };
+
+                            result.replace(context.send_output(output).await);
+                        }
+                    }
+                }
+
+                Response::Variables {
+                    body: VariablesResponse { variables },
+                } => {
+                    let mut output = Output::default();
+
+                    for v in variables {
+                        output.merge(Output {
                             contents: None,
-                            console: vec![result],
+                            console: vec![format!("{}: {}", v.name, v.value)],
                             error: vec![],
-                        })
-                        .await
-                        .ok();
+                        });
+                    }
+
+                    result.replace(context.send_output(output).await);
                 }
 
-                Response::Initialize { .. } => {
-                    requests
-                        .send(ClientRequest {
-                            seq: None,
-                            request: Request::LoadedSources { arguments: None },
-                        })
-                        .await
-                        .ok();
-                }
-
-                Response::LoadedSources {
-                    body: LoadedSourcesResponse { sources },
-                } => {
-                    let mut contents = contents.write().await;
-
-                    contents.clear();
-
-                    let sources = sources.into_iter().filter_map(
-                        |DapSource {
-                             source_reference,
-                             origin,
-                             ..
-                         }| match (
-                            source_reference,
-                            origin,
-                        ) {
-                            (
-                                Some(SourceReference::Path(name)),
-                                Some(contents),
-                            ) => Some((name, contents)),
-                            _ => None,
-                        },
-                    );
-
-                    contents.extend(sources);
-
-                    outputs
-                        .send(Output {
-                            contents: None,
-                            console: vec!["file loaded!".into()],
-                            error: vec![],
-                        })
-                        .await
-                        .ok();
-                }
-
-                Response::CustomAddBreakpoint {
-                    body: CustomAddBreakpointResponse { id },
-                } => {
-                    outputs
-                        .send(Output {
-                            contents: None,
-                            console: vec![format!("breakpoint added: #{}", id)],
-                            error: vec![],
-                        })
-                        .await
-                        .ok();
-                }
-
-                Response::CustomRemoveBreakpoint {
-                    body: CustomRemoveBreakpointResponse { id, removed },
-                } => {
-                    outputs
-                        .send(Output {
-                            contents: None,
-                            console: removed
-                                .then(|| {
-                                    vec![format!("breakpoint #{} removed", id)]
-                                })
-                                .unwrap_or_default(),
-                            error: (!removed)
-                                .then(|| {
-                                    vec![format!(
-                                        "breakpoint #{} wasn't removed!",
-                                        id
-                                    )]
-                                })
-                                .unwrap_or_default(),
-                        })
-                        .await
-                        .ok();
-                }
-
-                // the concrete implementation use `Stopped` event as output
-                // signal
                 _ => (),
+            }
+
+            match custom {
+                Some(ZkResponse::SourceContents { sources }) => {
+                    context.replace_contents_batch(sources).await;
+                    context.unlock_contents().await;
+                }
+
+                Some(ZkResponse::AddBreakpoint { id }) => {
+                    result.replace(
+                        context
+                            .send_output(Output {
+                                contents: None,
+                                console: vec![format!(
+                                    "breakpoint added: #{}",
+                                    id
+                                )],
+                                error: vec![],
+                            })
+                            .await,
+                    );
+                }
+
+                Some(ZkResponse::RemoveBreakpoint { id, removed }) => {
+                    result.replace(
+                        context
+                            .send_output(Output {
+                                contents: None,
+                                console: removed
+                                    .then(|| {
+                                        vec![format!(
+                                            "breakpoint #{} removed",
+                                            id
+                                        )]
+                                    })
+                                    .unwrap_or_default(),
+                                error: (!removed)
+                                    .then(|| {
+                                        vec![format!(
+                                            "breakpoint #{} wasn't removed!",
+                                            id
+                                        )]
+                                    })
+                                    .unwrap_or_default(),
+                            })
+                            .await,
+                    );
+                }
+
+                Some(ZkResponse::Witness { witness }) => {
+                    result.replace(
+                        context
+                            .send_output(Output {
+                                contents: None,
+                                console: vec![format!("{:?}", witness)],
+                                error: vec![],
+                            })
+                            .await,
+                    );
+                }
+
+                _ => (),
+            }
+
+            if let Some(Err(e)) = result {
+                context.send_error_output(e).await;
             }
         }
     }
 
     pub async fn load(args: ParsedArgs) -> io::Result<Self> {
-        let ParsedArgs { path, socket } = args;
+        let ParsedArgs { path, attach } = args;
         let config = Config::load()?;
 
         let input = Input::try_from(&config)?;
 
-        let service = dusk_cdf::ZkDapBuilder::new(socket).build().await?;
-        let socket = service.local_addr()?;
+        let socket = match attach {
+            Some(socket) => socket,
 
-        let contents: HashMap<String, String> = HashMap::new();
-        let contents = RwLock::new(contents);
-        let contents = Arc::new(contents);
+            None => {
+                let ip = net::Ipv4Addr::LOCALHOST;
+                let port = 0;
+                let socket = net::SocketAddrV4::new(ip, port);
 
-        tokio::spawn(async move {
-            service.listen().await.ok();
-        });
+                let service =
+                    dusk_cdf::ZkDapBuilder::new(socket).build().await?;
+                let socket = service.local_addr()?;
+
+                tokio::spawn(async move {
+                    service.listen().await.ok();
+                });
+
+                socket
+            }
+        };
 
         let Client {
             responses,
@@ -231,40 +285,46 @@ impl App {
             ..
         } = ClientBuilder::new().connect(socket).await?;
 
-        if let Some(path) = path {
-            let command = Command::Open { path };
-
-            if let Some(request) = command.request().first().cloned() {
-                requests
-                    .send(request.into())
-                    .await
-                    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-            }
-        }
-
         let (outputs_tx, outputs) = mpsc::channel(50);
 
-        let o = outputs_tx.clone();
-        let c = Arc::clone(&contents);
+        let context = Context::new(config, requests, outputs_tx);
+
+        if let Some(path) = path {
+            context.replace_path(path.display().to_string()).await?;
+        }
+
+        let c = context.clone();
 
         tokio::spawn(async move {
-            Self::handle_events(c, events, o).await;
+            Self::handle_events(c, events).await;
         });
 
-        let o = outputs_tx;
-        let c = Arc::clone(&contents);
-        let r = requests.clone();
+        let c = context.clone();
 
         tokio::spawn(async move {
-            Self::handle_responses(c, r, responses, o).await;
+            Self::handle_responses(c, responses).await;
         });
 
-        Ok(Self {
-            config,
+        let app = Self {
+            context,
             input,
-            requests,
             outputs,
-        })
+        };
+
+        Ok(app)
+    }
+
+    /// Empty the pending outputs
+    pub async fn flush_output(&mut self) -> Option<Output> {
+        time::sleep(self.context.config().render_delay()).await;
+
+        let mut output = Output::default();
+
+        while let Ok(o) = self.outputs.try_recv() {
+            output.merge(o);
+        }
+
+        Some(output)
     }
 
     /// Analogous to iterator next, but async
@@ -282,46 +342,14 @@ impl App {
             });
         }
 
-        let requests = command.request();
-        if requests.is_empty() {
+        if let Err(e) = self.context.receive_command(command).await {
             return Some(Output {
                 contents: None,
                 console: vec![],
-                error: vec!["the provided command didn't translate into a valid request".into()],
+                error: vec![format!("error sending request to backend: {}", e)],
             });
         }
 
-        for request in requests {
-            if let Err(e) = self.requests.send(request.into()).await {
-                return Some(Output {
-                    contents: None,
-                    console: vec![],
-                    error: vec![format!(
-                        "error sending request to backend: {}",
-                        e
-                    )],
-                });
-            }
-        }
-
-        let mut output = match self.outputs.recv().await {
-            Some(o) => o,
-
-            None => {
-                return Some(Output {
-                    contents: None,
-                    console: vec![],
-                    error: vec![format!(
-                        "the outputs channel is in an invalid state!"
-                    )],
-                })
-            }
-        };
-
-        while let Ok(o) = self.outputs.try_recv() {
-            output.merge(o);
-        }
-
-        Some(output)
+        self.flush_output().await
     }
 }

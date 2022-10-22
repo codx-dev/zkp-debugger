@@ -1,121 +1,15 @@
 //! CDF encoding/encoding configuration
 
 use core::mem;
-use std::path::{Path, PathBuf};
-use std::{fs, io};
+use std::io;
 
 use serde::{Deserialize, Serialize};
+use toml_base_config::BaseConfig;
 
 use crate::{
     DecodableElement, DecoderContext, Element, EncodableElement,
     EncoderContext, Preamble,
 };
-
-/// Base configuration schema. Maintains a config.toml for configs. Handles the
-/// reading/writing of config.toml. The config file is stored in the
-/// [`dirs::config_dir()`] and the full relative path can be obtained via
-/// [`BaseConfig::path`].
-///
-/// **See**: [`Config`] implements this already.
-pub trait BaseConfig:
-    Sized + Default + Serialize + for<'a> Deserialize<'a>
-{
-    /// The Package name is usually `env!("CARGO_PKG_NAME")`. This is the name
-    /// of the folder inside the config dir. We store the config.toml inside
-    /// this folder.
-    ///
-    /// Calling [`BaseConfig::load`] will create the config file at
-    /// [`BaseConfig::path`].
-    const PACKAGE: &'static str;
-
-    /// Compute path for the `config.toml`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use serde::{Deserialize, Serialize};
-    /// use dusk_cdf::BaseConfig;
-    /// use std::path::{Path, Component};
-    /// use std::ffi::OsStr;
-    ///
-    /// #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-    /// struct T  {}
-    ///
-    /// impl Default for T {
-    ///     fn default() -> Self {
-    ///         T {}
-    ///     }
-    /// }
-    ///
-    /// impl BaseConfig for T {
-    ///     const PACKAGE: &'static str = "Lisa";    
-    /// }
-    ///
-    /// let path = T::path().unwrap();
-    /// let mut components = path.components().rev(); // look at the last parts
-    ///
-    /// assert_eq!(components.next(), Some(Component::Normal(OsStr::new("config.toml"))));
-    /// assert_eq!(components.next(), Some(Component::Normal(OsStr::new("Lisa"))));
-    /// ```
-    fn path() -> Option<PathBuf> {
-        dirs::config_dir()
-            .map(|p| p.join(Self::PACKAGE))
-            .map(|p| p.join("config.toml"))
-    }
-
-    /// Serialize the toml if config.toml exists, else create a config.toml at
-    /// the path returned by [`BaseConfig::path`].
-    ///
-    /// The contents for the created config.toml is obtained by
-    /// `BaseConfig::default()` implementation
-    fn load() -> io::Result<Self> {
-        Self::path()
-            .ok_or_else(|| {
-                io::Error::new(
-                    io::ErrorKind::Other,
-                    "unable to define configuration path",
-                )
-            })
-            .and_then(Self::load_path)
-    }
-
-    /// Load a config file from a given path
-    fn load_path<P>(path: P) -> io::Result<Self>
-    where
-        P: AsRef<Path>,
-    {
-        let path = path.as_ref();
-
-        if !path.exists() {
-            let config = Self::default();
-
-            // config serialization is optional
-            path.parent()
-                .ok_or_else(|| {
-                    io::Error::new(
-                        io::ErrorKind::Other,
-                        "unable to fetch parent dir of config file",
-                    )
-                })
-                .and_then(fs::create_dir_all)
-                .and_then(|_| {
-                    toml::to_string_pretty(&config)
-                        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
-                })
-                .and_then(|contents| fs::write(path, contents))
-                .unwrap_or_else(|e| {
-                    eprintln!("failed to serialize config file: {}", e)
-                });
-
-            return Ok(config);
-        }
-
-        let contents = fs::read_to_string(path)?;
-
-        toml::from_str(&contents)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
-    }
-}
 
 /// Configuration parameters for encoding and decoding.
 ///
