@@ -9,13 +9,14 @@ readme = "README.md"
 description = "PLONK debugger CDF implementation"
 
 [dependencies]
-dap-reactor = { version = "0.3", optional = true }
+dap-reactor = { version = "0.5", optional = true }
 dirs = "4.0"
+hex = { version = "0.4", optional = true }
 msgpacker = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", optional = true }
 tokio = { version = "1.21", optional = true, features = ["sync"] }
-toml = "0.5"
+toml-base-config = "0.1"
 tracing = { version = "0.1", optional = true }
 
 [dev-dependencies]
@@ -25,8 +26,8 @@ rand = "0.8"
 sha2 = "0.10"
 tempdir = "0.3"
 tokio = { version = "1.21", features = ["full"] }
-tracing-subscriber = { version = "0.2", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [features]
 default = ["dap"]
-dap = ["dap-reactor", "serde_json", "tokio", "tracing"]
+dap = ["dap-reactor", "hex", "serde_json", "tokio", "tracing"]

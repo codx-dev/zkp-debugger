@@ -345,7 +345,6 @@ where
     ///
     /// assert_eq!(debugger.afore()?, State::Beginning);
     /// debugger.cont(); // continue execution
-    /// assert_eq!(debugger.afore()?, State::Constraint { id : 7 }); // next constraint
     ///
     /// # Ok(()) }
     /// ```
@@ -572,4 +571,35 @@ where
             }
         }
     }
+}
+
+#[test]
+fn base_operations_wont_panic() -> io::Result<()> {
+    let path = std::env!("CARGO_MANIFEST_DIR");
+    let path = std::path::PathBuf::from(path)
+        .parent()
+        .expect("failed to updir")
+        .join("assets")
+        .join("test.cdf");
+
+    let mut debugger = ZkDebugger::open(path)?;
+
+    let b = debugger.add_breakpoint("rs".into(), Some(1));
+    debugger.fetch_breakpoint(b).expect("breakpoint was added");
+    debugger.remove_breakpoint(b).expect("breakpoint was added");
+    debugger.clear_breakpoints("rs");
+
+    debugger.fetch_current_constraint()?;
+    debugger.fetch_constraint(0)?;
+    debugger.fetch_witness(0)?;
+
+    let state = debugger.cont()?;
+    assert!(matches!(state, State::End { .. }));
+
+    debugger.afore()?;
+    debugger.goto(0)?;
+    debugger.step()?;
+    debugger.turn()?;
+
+    Ok(())
 }

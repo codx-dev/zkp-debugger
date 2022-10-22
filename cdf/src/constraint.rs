@@ -168,7 +168,6 @@ impl<'a> Constraint<'a> {
     /// let mut debugger = ZkDebugger::from_reader(file)?;
     ///
     /// let constraint = debugger.fetch_constraint(9)?;
-    /// assert_eq!(constraint.line(), 26);
     ///
     /// # Ok(()) }
     /// ```
@@ -189,7 +188,6 @@ impl<'a> Constraint<'a> {
     /// let mut debugger = ZkDebugger::from_reader(file)?;
     ///
     /// let constraint = debugger.fetch_constraint(9)?;
-    /// assert_eq!(constraint.col(), 13);
     ///
     /// # Ok(()) }
     /// ```
@@ -210,7 +208,6 @@ impl<'a> Constraint<'a> {
     /// let mut debugger = ZkDebugger::from_reader(file)?;
     ///
     /// let constraint = debugger.fetch_constraint(9)?;
-    /// assert_eq!(constraint.name(), "/home/vlopes/dev/codex/tmp/plonk-dbg-lib/src/main.rs");
     ///
     /// # Ok(()) }
     /// ```
@@ -231,7 +228,6 @@ impl<'a> Constraint<'a> {
     /// let mut debugger = ZkDebugger::from_reader(file)?;
     ///
     /// let constraint = debugger.fetch_constraint(9)?;
-    /// assert_eq!(constraint.contents().len(), 1168);
     ///
     /// # Ok(()) }
     /// ```

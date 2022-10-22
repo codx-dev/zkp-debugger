@@ -1,5 +1,11 @@
 //! Debug Adapter Protocol provider
 
+mod types;
+mod utils;
+
+#[cfg(test)]
+mod tests;
+
 use std::fs::File;
 use std::io;
 use std::net::SocketAddr;
@@ -7,100 +13,13 @@ use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use dap_reactor::models::{ContinueResponse, CustomAddBreakpointArguments};
 use dap_reactor::prelude::*;
-use dap_reactor::types::Breakpoint;
 use tokio::net;
 use tokio::sync::Mutex;
 
-use crate::{EncodableConstraint, EncodableWitness, State, ZkDebugger};
+use crate::{State, ZkDebugger};
 
-/// Evaluate expression to be consumed when creating a [`Request::Evaluate`]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ZkEvaluate {
-    /// Evaluate a constraint with the provided index
-    Constraint {
-        /// Id of the constraint
-        id: usize,
-    },
-    /// Evaluate the current constraint
-    CurrentConstraint,
-    /// Evaluate a witness with the provided index
-    Witness {
-        /// Id of the witness
-        id: usize,
-    },
-}
-
-impl From<ZkEvaluate> for String {
-    fn from(ev: ZkEvaluate) -> Self {
-        match ev {
-            ZkEvaluate::Constraint { id } => format!("c{}", id),
-            ZkEvaluate::CurrentConstraint => "x".into(),
-            ZkEvaluate::Witness { id } => format!("w{}", id),
-        }
-    }
-}
-
-impl TryFrom<&str> for ZkEvaluate {
-    type Error = io::Error;
-
-    fn try_from(s: &str) -> io::Result<Self> {
-        match s.split_at(0) {
-            ("c", n) => n
-                .parse::<usize>()
-                .map(|id| Self::Constraint { id })
-                .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e)),
-            ("x", "") => Ok(Self::CurrentConstraint),
-            ("w", n) => n
-                .parse::<usize>()
-                .map(|id| Self::Witness { id })
-                .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e)),
-
-            _ => Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "the provided evaluate request isn't valid",
-            )),
-        }
-    }
-}
-
-/// Path & line representation
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ZkSourceDescription {
-    /// Path of the source, as string
-    pub name: String,
-    /// Line number
-    pub line: u64,
-}
-
-impl From<ZkSourceDescription> for String {
-    fn from(source: ZkSourceDescription) -> Self {
-        let ZkSourceDescription { name, line } = source;
-
-        format!("{}:{}", name, line)
-    }
-}
-
-impl TryFrom<&str> for ZkSourceDescription {
-    type Error = io::Error;
-
-    fn try_from(s: &str) -> io::Result<Self> {
-        let (name, line) = s.split_once(':').ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "invalid format for source description",
-            )
-        })?;
-
-        let name = String::from(name);
-        let line = line
-            .parse()
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
-
-        Ok(Self { name, line })
-    }
-}
+pub use types::*;
 
 /// Builder for the [`ZkDap`] service
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -170,13 +89,13 @@ pub struct ZkDap {
 
 impl ZkDap {
     /// Define the implementation capabilities
-    pub fn capabilities() -> Capabilities {
+    pub const fn capabilities() -> Capabilities {
         Capabilities {
             supports_configuration_done_request: true,
             supports_function_breakpoints: true,
             supports_conditional_breakpoints: true,
             supports_hit_conditional_breakpoints: true,
-            supports_evaluate_for_hovers: true,
+            supports_evaluate_for_hovers: false,
             exception_breakpoint_filters: vec![],
             supports_step_back: true,
             supports_set_variable: false,
@@ -187,24 +106,19 @@ impl ZkDap {
             completion_trigger_characters: vec![],
             supports_modules_request: false,
             additional_module_columns: vec![],
-            supported_checksum_algorithms: vec![
-                ChecksumAlgorithm::Md5,
-                ChecksumAlgorithm::Sha1,
-                ChecksumAlgorithm::Sha256,
-                ChecksumAlgorithm::Timestamp,
-            ],
+            supported_checksum_algorithms: vec![],
             supports_restart_request: true,
             supports_exception_options: false,
             supports_value_formatting_options: false,
             supports_exception_info_request: false,
-            support_terminate_debuggee: true,
-            support_suspend_debuggee: true,
+            support_terminate_debuggee: false,
+            support_suspend_debuggee: false,
             supports_delayed_stack_trace_loading: false,
-            supports_loaded_sources_request: true,
-            supports_log_points: true,
-            supports_terminate_threads_request: true,
+            supports_loaded_sources_request: false,
+            supports_log_points: false,
+            supports_terminate_threads_request: false,
             supports_set_expression: false,
-            supports_terminate_request: true,
+            supports_terminate_request: false,
             supports_data_breakpoints: true,
             supports_read_memory_request: false,
             supports_write_memory_request: false,
@@ -213,7 +127,7 @@ impl ZkDap {
             supports_breakpoint_locations_request: true,
             supports_clipboard_context: false,
             supports_stepping_granularity: false,
-            supports_instruction_breakpoints: false,
+            supports_instruction_breakpoints: true,
             supports_exception_filter_options: false,
             supports_single_thread_execution_requests: true,
         }
@@ -247,55 +161,62 @@ impl ZkDap {
         )
     }
 
+    async fn send_event(&self, event: Event) -> io::Result<()> {
+        self.events
+            .send(event)
+            .await
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+    }
+
     async fn update_constraint(
         &self,
-        debugger: &mut ZkDebugger<File>,
         reason: StoppedReason,
         breakpoints: Vec<usize>,
     ) -> io::Result<()> {
-        let constraint = debugger.fetch_current_constraint()?;
-        let description = ZkSourceDescription {
-            name: constraint.name().into(),
-            line: constraint.line(),
-        };
+        self.send_event(Event::Stopped {
+            reason,
+            description: None,
+            thread_id: Some(0),
+            preserve_focus_hint: false,
+            text: None,
+            all_threads_stopped: true,
+            hit_breakpoint_ids: breakpoints,
+        })
+        .await
+    }
 
-        let description = Some(description.into());
+    async fn terminate(&self, exit_code: u64) -> io::Result<()> {
+        self.send_event(Event::Thread {
+            reason: ThreadReason::Exited,
+            thread_id: 0,
+        })
+        .await?;
 
-        self.events
-            .send(Event::Stopped {
-                reason,
-                description,
-                thread_id: None,
-                preserve_focus_hint: false,
-                text: None,
-                all_threads_stopped: true,
-                hit_breakpoint_ids: breakpoints,
-            })
-            .await
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        self.send_event(Event::Terminated { restart: None }).await?;
+        self.send_event(Event::Exited { exit_code }).await?;
 
         Ok(())
     }
 
-    async fn consume_state(
-        &self,
-        debugger: &mut ZkDebugger<File>,
-        state: State,
-    ) -> io::Result<()> {
-        let (reason, breakpoints) = match state {
-            State::Beginning => (StoppedReason::Custom("bof".into()), vec![]),
-            State::Constraint { id: _ }
-            | State::InvalidConstraint { id: _ } => {
-                (StoppedReason::Exception, vec![])
+    async fn consume_state(&self, state: State) -> io::Result<()> {
+        match state {
+            State::Beginning | State::Constraint { .. } => {
+                self.update_constraint(StoppedReason::Step, vec![]).await?;
             }
-            State::Breakpoint { id } => (StoppedReason::Breakpoint, vec![id]),
-            State::End { id: _ } => {
-                (StoppedReason::Custom("eof".into()), vec![])
-            }
-        };
 
-        self.update_constraint(debugger, reason, breakpoints)
-            .await?;
+            State::InvalidConstraint { .. } => {
+                self.terminate(1).await?;
+            }
+
+            State::Breakpoint { id } => {
+                self.update_constraint(StoppedReason::Breakpoint, vec![id])
+                    .await?;
+            }
+
+            State::End { .. } => {
+                self.terminate(0).await?;
+            }
+        }
 
         Ok(())
     }
@@ -304,92 +225,50 @@ impl ZkDap {
         &self,
         arguments: Option<BreakpointLocationsArguments>,
     ) -> io::Result<Response> {
-        let debugger = self.backend.lock().await;
-        let debugger = debugger.as_ref().ok_or_else(Self::not_initialized)?;
+        let mut debugger = self.backend.lock().await;
+        let debugger = debugger.as_mut().ok_or_else(Self::not_initialized)?;
 
-        let breakpoints = debugger
-            .breakpoints()
-            .iter()
-            .filter_map(|(b, _)| {
-                arguments
-                    .as_ref()
-                    .map(
-                        |BreakpointLocationsArguments {
-                             source, line, ..
-                         }| {
-                            b.matches(
-                                source.name.as_deref().unwrap_or(""),
-                                *line,
-                            )
-                            .then_some(
-                                BreakpointLocation {
-                                    line: *line,
-                                    column: None,
-                                    end_line: None,
-                                    end_column: None,
-                                },
-                            )
-                        },
-                    )
-                    .unwrap_or_else(|| {
-                        Some(BreakpointLocation {
-                            line: b.line.unwrap_or_default(),
-                            column: None,
-                            end_line: None,
-                            end_column: None,
-                        })
-                    })
+        let (source, line, end_line) = match arguments {
+            Some(BreakpointLocationsArguments {
+                source:
+                    Source {
+                        source_reference: Some(SourceReference::Path(path)),
+                        ..
+                    },
+                line,
+                end_line,
+                ..
+            }) => (path, line, end_line),
+            _ => return Ok(Response::BreakpointLocations { body: None }),
+        };
+
+        let end_line = end_line.unwrap_or(line);
+        let breakpoints = (line..=end_line)
+            .filter(|l| debugger.add_breakpoint(source.clone(), Some(*l)) > 0)
+            .map(|_| BreakpointLocation {
+                line,
+                column: None,
+                end_line: None,
+                end_column: None,
             })
             .collect();
 
-        // TODO https://github.com/codx-dev/dap-reactor/issues/12
         Ok(Response::BreakpointLocations {
             body: Some(BreakpointLocationsResponse { breakpoints }),
         })
     }
 
-    async fn evaluate(
-        &self,
-        arguments: EvaluateArguments,
-    ) -> io::Result<Response> {
-        let expression = ZkEvaluate::try_from(arguments.expression.as_str())?;
-
-        let mut debugger = self.backend.lock().await;
-        let debugger = debugger.as_mut().ok_or_else(Self::not_initialized)?;
-
-        let result = match expression {
-            ZkEvaluate::Constraint { id } => {
-                let constraint = debugger.fetch_constraint(id)?;
-                let constraint = EncodableConstraint::from(constraint);
-
-                serde_json::to_string(&constraint)?
-            }
-
-            ZkEvaluate::CurrentConstraint => {
-                let constraint = debugger.fetch_current_constraint()?;
-                let constraint = EncodableConstraint::from(constraint);
-
-                serde_json::to_string(&constraint)?
-            }
-
-            ZkEvaluate::Witness { id } => {
-                let witness = debugger.fetch_witness(id)?;
-                let witness = EncodableWitness::from(witness);
-
-                serde_json::to_string(&witness)?
-            }
-        };
-
+    async fn evaluate(&self) -> io::Result<Response> {
         Ok(Response::Evaluate {
             body: EvaluateResponse {
-                result,
+                result: "evaluate is not implemented".into(),
                 r#type: None,
-                presentation_hint: VariablePresentationHint {
-                    kind: Kind::Data,
+                presentation_hint: Some(VariablePresentationHint {
+                    kind: Some(VariablePresentationHintKind::Data),
                     attributes: vec![],
                     visibility: None,
                     lazy: false,
-                },
+                }),
                 variables_reference: 0,
                 named_variables: None,
                 indexed_variables: None,
@@ -398,23 +277,8 @@ impl ZkDap {
         })
     }
 
-    async fn initialize(
-        &self,
-        arguments: InitializeArguments,
-    ) -> io::Result<Response> {
-        let InitializeArguments { adapter_id, .. } = arguments;
-
-        let path = PathBuf::from(adapter_id);
-        let mut debugger = ZkDebugger::open(path)?;
-
-        self.update_constraint(
-            &mut debugger,
-            StoppedReason::Custom("initialized".into()),
-            vec![],
-        )
-        .await?;
-
-        self.backend.lock().await.replace(debugger);
+    async fn initialize(&self) -> io::Result<Response> {
+        self.send_event(Event::Initialized).await?;
 
         Ok(Response::Initialize {
             body: Self::capabilities(),
@@ -427,7 +291,7 @@ impl ZkDap {
 
         let state = debugger.cont()?;
 
-        self.consume_state(debugger, state).await?;
+        self.consume_state(state).await?;
 
         Ok(Response::Continue {
             body: ContinueResponse {
@@ -442,33 +306,9 @@ impl ZkDap {
 
         debugger.goto(arguments.target_id as usize)?;
 
-        self.update_constraint(debugger, StoppedReason::Goto, vec![])
-            .await?;
+        self.update_constraint(StoppedReason::Goto, vec![]).await?;
 
         Ok(Response::Goto)
-    }
-
-    async fn loaded_sources(&self) -> io::Result<Response> {
-        let debugger = self.backend.lock().await;
-        let debugger = debugger.as_ref().ok_or_else(Self::not_initialized)?;
-
-        // TODO consider using reference instead of path
-        let sources = debugger
-            .sources()
-            .map(|(path, contents)| Source {
-                name: None,
-                source_reference: Some(SourceReference::Path(path.into())),
-                presentation_hint: None,
-                origin: Some(contents.into()),
-                sources: vec![],
-                adapter_data: None,
-                checksums: vec![],
-            })
-            .collect();
-
-        Ok(Response::LoadedSources {
-            body: LoadedSourcesResponse { sources },
-        })
     }
 
     async fn next(&self) -> io::Result<Response> {
@@ -477,7 +317,7 @@ impl ZkDap {
 
         let state = debugger.step()?;
 
-        self.consume_state(debugger, state).await?;
+        self.consume_state(state).await?;
 
         Ok(Response::Goto)
     }
@@ -488,23 +328,16 @@ impl ZkDap {
 
         debugger.goto(0)?;
 
-        self.events
-            .send(Event::Process {
-                name: debugger.to_string(),
-                system_process_id: None,
-                is_local_process: true,
-                start_method: Some(ProcessStartMethod::Launch),
-                pointer_size: None,
-            })
-            .await
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-
-        self.update_constraint(
-            debugger,
-            StoppedReason::Custom("restart".into()),
-            vec![],
-        )
+        self.send_event(Event::Process {
+            name: debugger.to_string(),
+            system_process_id: None,
+            is_local_process: true,
+            start_method: Some(ProcessStartMethod::Launch),
+            pointer_size: None,
+        })
         .await?;
+
+        self.update_constraint(StoppedReason::Step, vec![]).await?;
 
         Ok(Response::Restart)
     }
@@ -515,7 +348,7 @@ impl ZkDap {
 
         let state = debugger.turn()?;
 
-        self.consume_state(debugger, state).await?;
+        self.consume_state(state).await?;
 
         Ok(Response::Continue {
             body: ContinueResponse {
@@ -524,12 +357,33 @@ impl ZkDap {
         })
     }
 
+    async fn custom_request(
+        &self,
+        arguments: Option<Value>,
+    ) -> io::Result<Response> {
+        let request = ZkRequest::try_from(arguments.as_ref())?;
+
+        match request {
+            ZkRequest::AddBreakpoint { breakpoint } => {
+                self.add_breakpoint(breakpoint).await
+            }
+
+            ZkRequest::RemoveBreakpoint { id } => {
+                self.remove_breakpoint(id).await
+            }
+
+            ZkRequest::LoadCdf { path } => self.load_cdf(path).await,
+
+            ZkRequest::SourceContents => self.source_contents().await,
+
+            ZkRequest::Witness { id } => self.witness(id).await,
+        }
+    }
+
     async fn add_breakpoint(
         &self,
-        arguments: CustomAddBreakpointArguments,
+        breakpoint: Breakpoint,
     ) -> io::Result<Response> {
-        let CustomAddBreakpointArguments { breakpoint } = arguments;
-
         let line = breakpoint.line;
         let name = breakpoint.source.and_then(|s| s.name).ok_or_else(|| {
             io::Error::new(
@@ -543,24 +397,76 @@ impl ZkDap {
 
         let id = debugger.add_breakpoint(name, line) as u64;
 
-        Ok(Response::CustomAddBreakpoint {
-            body: CustomAddBreakpointResponse { id },
-        })
+        Ok(ZkResponse::AddBreakpoint { id }.into())
     }
 
-    async fn remove_breakpoint(
-        &self,
-        arguments: CustomRemoveBreakpointArguments,
-    ) -> io::Result<Response> {
-        let CustomRemoveBreakpointArguments { id } = arguments;
-
+    async fn remove_breakpoint(&self, id: u64) -> io::Result<Response> {
         let mut debugger = self.backend.lock().await;
         let debugger = debugger.as_mut().ok_or_else(Self::not_initialized)?;
 
         let removed = debugger.remove_breakpoint(id as usize).is_some();
 
-        Ok(Response::CustomRemoveBreakpoint {
-            body: CustomRemoveBreakpointResponse { id, removed },
+        Ok(ZkResponse::RemoveBreakpoint { id, removed }.into())
+    }
+
+    async fn load_cdf(&self, path: String) -> io::Result<Response> {
+        let path = PathBuf::from(path);
+        let debugger = ZkDebugger::open(path)?;
+
+        self.send_event(Event::Thread {
+            reason: ThreadReason::Started,
+            thread_id: 0,
+        })
+        .await?;
+
+        self.update_constraint(StoppedReason::Step, vec![]).await?;
+
+        self.backend.lock().await.replace(debugger);
+
+        Ok(ZkResponse::LoadCdf.into())
+    }
+
+    async fn source_contents(&self) -> io::Result<Response> {
+        let debugger = self.backend.lock().await;
+        let debugger = debugger.as_ref().ok_or_else(Self::not_initialized)?;
+
+        let sources = debugger
+            .sources()
+            .map(|(path, contents)| ZkSource {
+                path: path.into(),
+                contents: contents.into(),
+            })
+            .collect();
+
+        Ok(ZkResponse::SourceContents { sources }.into())
+    }
+
+    async fn scopes(&self) -> io::Result<Response> {
+        let mut debugger = self.backend.lock().await;
+        let debugger = debugger.as_mut().ok_or_else(Self::not_initialized)?;
+
+        let constraint = debugger.fetch_current_constraint()?;
+        let variables_reference = constraint.id() as u64;
+        let source = Source::from(&constraint);
+        let line = constraint.line();
+        let column = constraint.col();
+
+        Ok(Response::Scopes {
+            body: ScopesResponse {
+                scopes: vec![Scope {
+                    name: "Circuit".into(),
+                    presentation_hint: Some(ScopePresentationHint::Locals),
+                    variables_reference,
+                    named_variables: Some(18),
+                    indexed_variables: Some(18),
+                    expensive: false,
+                    source: Some(source),
+                    line: Some(line),
+                    column: Some(column),
+                    end_line: None,
+                    end_column: None,
+                }],
+            },
         })
     }
 
@@ -617,15 +523,132 @@ impl ZkDap {
         })
     }
 
+    async fn stack_trace(&self) -> io::Result<Response> {
+        let mut debugger = self.backend.lock().await;
+        let debugger = debugger.as_mut().ok_or_else(Self::not_initialized)?;
+
+        let constraint = debugger.fetch_current_constraint()?;
+        let source = Source::from(&constraint);
+
+        let line = constraint.line();
+        let column = constraint.col();
+
+        Ok(Response::StackTrace {
+            body: StackTraceResponse {
+                stack_frames: vec![StackFrame {
+                    id: 0,
+                    name: "cdf".into(),
+                    source: Some(source),
+                    line,
+                    column,
+                    end_line: None,
+                    end_column: None,
+                    can_restart: true,
+                    instruction_pointer_reference: None,
+                    module_id: None,
+                    presentation_hint: None,
+                }],
+                total_frames: Some(1),
+            },
+        })
+    }
+
     async fn step_back(&self) -> io::Result<Response> {
         let mut debugger = self.backend.lock().await;
         let debugger = debugger.as_mut().ok_or_else(Self::not_initialized)?;
 
         let state = debugger.afore()?;
 
-        self.consume_state(debugger, state).await?;
+        self.consume_state(state).await?;
 
         Ok(Response::Goto)
+    }
+
+    async fn threads(&self) -> io::Result<Response> {
+        Ok(Response::Threads {
+            body: ThreadsResponse {
+                threads: vec![Thread {
+                    id: 0,
+                    name: "cdf".into(),
+                }],
+            },
+        })
+    }
+
+    async fn variables(
+        &self,
+        arguments: VariablesArguments,
+    ) -> io::Result<Response> {
+        if let Some(VariablesArgumentsFilter::Named) = arguments.filter.as_ref()
+        {
+            return Ok(Response::Variables {
+                body: VariablesResponse { variables: vec![] },
+            });
+        }
+
+        let mut debugger = self.backend.lock().await;
+        let debugger = debugger.as_mut().ok_or_else(Self::not_initialized)?;
+
+        let constraint = debugger.fetch_current_constraint()?;
+        let id = constraint.id();
+
+        let polynomial = *constraint.polynomial();
+
+        let idx = utils::idx_to_var("constraint", id);
+
+        let qm = utils::scalar_to_var("Qm", &polynomial.selectors.qm);
+        let ql = utils::scalar_to_var("Ql", &polynomial.selectors.ql);
+        let qr = utils::scalar_to_var("Qr", &polynomial.selectors.qr);
+        let qd = utils::scalar_to_var("Qd", &polynomial.selectors.qd);
+        let qc = utils::scalar_to_var("Qc", &polynomial.selectors.qc);
+        let qo = utils::scalar_to_var("Qo", &polynomial.selectors.qo);
+        let pi = utils::scalar_to_var("PI", &polynomial.selectors.pi);
+        let qarith =
+            utils::scalar_to_var("Qarith", &polynomial.selectors.qarith);
+        let qlogic =
+            utils::scalar_to_var("Qlogic", &polynomial.selectors.qlogic);
+        let qrange =
+            utils::scalar_to_var("Qrange", &polynomial.selectors.qrange);
+        let qgroup = utils::scalar_to_var(
+            "Qgroup",
+            &polynomial.selectors.qgroup_variable,
+        );
+        let qadd =
+            utils::scalar_to_var("Qadd", &polynomial.selectors.qfixed_add);
+
+        let eval = utils::bool_to_var("Evaluation", polynomial.evaluation);
+
+        let wa = debugger
+            .fetch_witness(polynomial.witnesses.a)
+            .map(|w| utils::witness_to_var("Wa", w))?;
+        let wb = debugger
+            .fetch_witness(polynomial.witnesses.b)
+            .map(|w| utils::witness_to_var("Wb", w))?;
+        let wd = debugger
+            .fetch_witness(polynomial.witnesses.d)
+            .map(|w| utils::witness_to_var("Wd", w))?;
+        let wo = debugger
+            .fetch_witness(polynomial.witnesses.o)
+            .map(|w| utils::witness_to_var("Wo", w))?;
+
+        Ok(Response::Variables {
+            body: VariablesResponse {
+                variables: vec![
+                    idx, qm, ql, qr, qd, qc, qo, pi, qarith, qlogic, qrange,
+                    qgroup, qadd, eval, wa, wb, wd, wo,
+                ],
+            },
+        })
+    }
+
+    async fn witness(&self, id: usize) -> io::Result<Response> {
+        let mut debugger = self.backend.lock().await;
+        let debugger = debugger.as_mut().ok_or_else(Self::not_initialized)?;
+
+        let witness = debugger.fetch_witness(id)?;
+        let witness = ZkWitness::from(witness);
+
+        Ok(ZkResponse::Witness { witness }.into())
     }
 }
 
@@ -661,12 +684,8 @@ impl Backend for ZkDap {
 
             Request::Continue { .. } => self.r#continue().await.map(Some),
 
-            Request::CustomAddBreakpoint { arguments } => {
-                self.add_breakpoint(arguments).await.map(Some)
-            }
-
-            Request::CustomRemoveBreakpoint { arguments } => {
-                self.remove_breakpoint(arguments).await.map(Some)
+            Request::Custom { arguments } => {
+                self.custom_request(arguments).await.map(Some)
             }
 
             // we might implement multi-session per dap provider in the future
@@ -674,19 +693,11 @@ impl Backend for ZkDap {
             Request::Terminate { .. } => Ok(Some(Response::Terminate)),
             Request::Launch { .. } => Ok(Some(Response::Launch)),
 
-            Request::Evaluate { arguments } => {
-                self.evaluate(arguments).await.map(Some)
-            }
+            Request::Evaluate { .. } => self.evaluate().await.map(Some),
 
             Request::Goto { arguments } => self.goto(arguments).await.map(Some),
 
-            Request::Initialize { arguments } => {
-                self.initialize(arguments).await.map(Some)
-            }
-
-            Request::LoadedSources { .. } => {
-                self.loaded_sources().await.map(Some)
-            }
+            Request::Initialize { .. } => self.initialize().await.map(Some),
 
             Request::Next { .. } => self.next().await.map(Some),
 
@@ -696,14 +707,24 @@ impl Backend for ZkDap {
                 self.reverse_continue().await.map(Some)
             }
 
+            Request::Scopes { .. } => self.scopes().await.map(Some),
+
             Request::SetBreakpoints { arguments } => {
                 self.set_breakpoints(arguments).await.map(Some)
             }
 
+            Request::StackTrace { .. } => self.stack_trace().await.map(Some),
+
             Request::StepBack { .. } => self.step_back().await.map(Some),
 
+            Request::Threads => self.threads().await.map(Some),
+
+            Request::Variables { arguments } => {
+                self.variables(arguments).await.map(Some)
+            }
+
             _ => {
-                tracing::warn!("not implemented");
+                tracing::warn!("not supported");
                 Ok(None)
             }
         };
@@ -721,7 +742,7 @@ impl Backend for ZkDap {
                         category: Some(OutputCategory::Stderr),
                         output: e.to_string(),
                         group: None,
-                        variables_reference: 0,
+                        variables_reference: None,
                         source: None,
                         line: None,
                         column: None,

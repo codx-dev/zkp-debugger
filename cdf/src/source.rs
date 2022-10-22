@@ -92,6 +92,11 @@ impl EncodableSource {
     pub fn path(&self) -> &str {
         &self.path
     }
+
+    /// Path as decoded
+    pub fn decoded_path(&self) -> String {
+        format!("dusk-cdf:{}", self.path)
+    }
 }
 
 impl From<DecodedSource<'_>> for EncodableSource {

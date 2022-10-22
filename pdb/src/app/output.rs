@@ -1,9 +1,11 @@
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Source {
     pub name: String,
     pub contents: String,
     pub line: usize,
 }
 
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Output {
     pub contents: Option<Source>,
     pub console: Vec<String>,

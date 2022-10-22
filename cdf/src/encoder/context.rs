@@ -97,22 +97,22 @@ impl EncoderContext {
         P: EncoderContextProvider,
         W: io::Write,
     {
-        let mut contents = self.path_cache.iter().collect::<Vec<_>>();
+        let mut cache = self.path_cache.iter().collect::<Vec<_>>();
 
-        contents.as_mut_slice().sort_by_key(|(_p, i)| *i);
+        cache.as_mut_slice().sort_by_key(|(_p, i)| *i);
 
-        let paths = contents
+        let contents = cache
             .iter()
-            .map(|(p, _i)| p.to_string())
-            .collect::<Vec<_>>();
-
-        let contents = paths
-            .iter()
+            .map(|(p, _i)| p)
             .map(|p| provider.contents(p))
             .map(|p| p.map(Message::String))
             .collect::<io::Result<Vec<_>>>()?;
 
-        let paths = paths.into_iter().map(Message::String).collect();
+        let paths = cache
+            .iter()
+            .map(|(p, _i)| format!("dusk-cdf:{}", p))
+            .map(Message::String)
+            .collect::<Vec<_>>();
 
         let n = Message::Array(paths).pack(&mut writer)?;
         let n = n + Message::Array(contents).pack(&mut writer)?;

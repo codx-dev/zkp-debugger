@@ -1,19 +1,17 @@
-use std::io;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::{io, vec};
 
 use dap_reactor::prelude::{
-    ContinueArguments, CustomAddBreakpointArguments,
-    CustomRemoveBreakpointArguments, EvaluateArguments, GotoArguments,
-    InitializeArguments, ReverseContinueArguments, StepBackArguments,
+    Breakpoint, ContinueArguments, GotoArguments, InitializeArguments,
+    ReverseContinueArguments, Source, StepBackArguments, VariablesArguments,
 };
 use dap_reactor::request::Request;
-use dap_reactor::types::{Breakpoint, Source};
-use dusk_cdf::ZkEvaluate;
+use dusk_cdf::ZkRequest;
 
 use super::Instruction;
 
-/// A PDF command
+/// A PDB command
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Command {
     /// Execute the previous constraint
@@ -45,7 +43,7 @@ pub enum Command {
     /// Open a CDF file
     Open {
         /// File path
-        path: PathBuf,
+        path: String,
     },
     /// Print constraint data
     Print,
@@ -72,6 +70,7 @@ impl Command {
         match instruction {
             Instruction::Open => PathBuf::from(arg)
                 .canonicalize()
+                .map(|path| path.display().to_string())
                 .map(|path| Self::Open { path }),
 
             Instruction::Breakpoint => {
@@ -79,16 +78,8 @@ impl Command {
 
                 let source = args
                     .next()
-                    .ok_or_else(|| {
-                        io::Error::new(
-                            io::ErrorKind::InvalidInput,
-                            format!(
-                                "the file argument is mandatory for breakpoints. syntax: {}",
-                                instruction.syntax()
-                            ),
-                        )
-                    })
-                    .map(String::from)?;
+                    .unwrap_or("split always generate a first element")
+                    .into();
 
                 let line = args.next().map(u64::from_str).transpose().map_err(
                     |e| io::Error::new(io::ErrorKind::InvalidInput, e),
@@ -118,8 +109,13 @@ impl Command {
             )),
         }
     }
+}
 
-    pub fn request(self) -> Vec<Request> {
+impl IntoIterator for Command {
+    type Item = Request;
+    type IntoIter = vec::IntoIter<Request>;
+
+    fn into_iter(self) -> Self::IntoIter {
         match self {
             Command::Afore => vec![Request::StepBack {
                 arguments: StepBackArguments {
@@ -127,33 +123,34 @@ impl Command {
                     single_thread: true,
                     granularity: None,
                 },
-            }],
+            }]
+            .into_iter(),
 
             Command::Breakpoint { source, line } => {
-                vec![Request::CustomAddBreakpoint {
-                    arguments: CustomAddBreakpointArguments {
-                        breakpoint: Breakpoint {
-                            id: None,
-                            verified: true,
-                            message: None,
-                            source: Some(Source {
-                                name: Some(source),
-                                source_reference: None,
-                                presentation_hint: None,
-                                origin: None,
-                                sources: vec![],
-                                adapter_data: None,
-                                checksums: vec![],
-                            }),
-                            line,
-                            column: None,
-                            end_line: line,
-                            end_column: None,
-                            instruction_reference: None,
-                            offset: None,
-                        },
+                vec![ZkRequest::AddBreakpoint {
+                    breakpoint: Breakpoint {
+                        id: None,
+                        verified: true,
+                        message: None,
+                        source: Some(Source {
+                            name: Some(source),
+                            source_reference: None,
+                            presentation_hint: None,
+                            origin: None,
+                            sources: vec![],
+                            adapter_data: None,
+                            checksums: vec![],
+                        }),
+                        line,
+                        column: None,
+                        end_line: line,
+                        end_column: None,
+                        instruction_reference: None,
+                        offset: None,
                     },
-                }]
+                }
+                .into()]
+                .into_iter()
             }
 
             Command::Continue => vec![Request::Continue {
@@ -161,76 +158,87 @@ impl Command {
                     thread_id: 0,
                     single_thread: true,
                 },
-            }],
+            }]
+            .into_iter(),
 
-            Command::Delete { id } => vec![Request::CustomRemoveBreakpoint {
-                arguments: CustomRemoveBreakpointArguments { id: id as u64 },
-            }],
+            Command::Delete { id } => {
+                vec![ZkRequest::RemoveBreakpoint { id: id as u64 }.into()]
+                    .into_iter()
+            }
 
             Command::Goto { id } => vec![Request::Goto {
                 arguments: GotoArguments {
                     thread_id: 0,
                     target_id: id as u64,
                 },
-            }],
+            }]
+            .into_iter(),
 
-            Command::Help => vec![],
+            Command::Help => vec![].into_iter(),
 
-            Command::Next => vec![Request::Next { arguments: None }],
+            Command::Next => {
+                vec![Request::Next { arguments: None }].into_iter()
+            }
 
-            Command::Open { path } => vec![
-                Request::Initialize {
-                    arguments: InitializeArguments {
-                        client_id: None,
-                        client_name: None,
-                        adapter_id: path.display().to_string(),
-                        locale: None,
-                        lines_start_at_1: true,
-                        column_start_at_1: true,
-                        path_format: None,
-                        supports_variable_type: false,
-                        supports_variable_paging: false,
-                        supports_run_in_terminal_request: false,
-                        supports_memory_references: false,
-                        supports_progress_reporting: false,
-                        supports_invalidated_event: false,
-                        supports_memory_event: false,
-                        supports_args_can_be_interpreted_by_shell: false,
-                    },
+            Command::Open { .. } => vec![Request::Initialize {
+                arguments: InitializeArguments {
+                    client_id: None,
+                    client_name: None,
+                    adapter_id: "cdf".into(),
+                    locale: None,
+                    lines_start_at_1: true,
+                    column_start_at_1: true,
+                    path_format: None,
+                    supports_variable_type: false,
+                    supports_variable_paging: false,
+                    supports_run_in_terminal_request: false,
+                    supports_memory_references: false,
+                    supports_progress_reporting: false,
+                    supports_invalidated_event: false,
+                    supports_memory_event: false,
+                    supports_args_can_be_interpreted_by_shell: false,
                 },
-                Request::Restart { arguments: None },
-            ],
+            }]
+            .into_iter(),
 
-            Command::Print => vec![Request::Evaluate {
-                arguments: EvaluateArguments {
-                    expression: ZkEvaluate::CurrentConstraint.into(),
-                    frame_id: None,
-                    context: None,
+            Command::Print => vec![Request::Variables {
+                arguments: VariablesArguments {
+                    variables_reference: 0,
+                    filter: None,
+                    start: None,
+                    count: None,
                     format: None,
                 },
-            }],
+            }]
+            .into_iter(),
 
-            Command::Restart => vec![Request::Restart { arguments: None }],
+            Command::Restart => {
+                vec![Request::Restart { arguments: None }].into_iter()
+            }
 
             Command::Turn => vec![Request::ReverseContinue {
                 arguments: ReverseContinueArguments {
                     thread_id: 0,
                     single_thread: true,
                 },
-            }],
+            }]
+            .into_iter(),
 
-            Command::Quit => vec![Request::Terminate { arguments: None }],
+            Command::Quit => {
+                vec![Request::Terminate { arguments: None }].into_iter()
+            }
 
-            Command::Witness { id } => vec![Request::Evaluate {
-                arguments: EvaluateArguments {
-                    expression: ZkEvaluate::Witness { id }.into(),
-                    frame_id: None,
-                    context: None,
-                    format: None,
-                },
-            }],
+            Command::Witness { id } => {
+                vec![ZkRequest::Witness { id }.into()].into_iter()
+            }
         }
     }
+}
+
+#[test]
+fn try_from_binary_wont_panic_with_unary() {
+    Command::try_from_binary(&Instruction::Print, "xxx")
+        .expect_err("Print shouldn't take arguments");
 }
 
 #[test]
@@ -247,7 +255,9 @@ fn try_from_binary_open_works() {
     let command = Command::try_from_binary(&Instruction::Open, cargo_str)
         .expect("failed to create open command");
 
-    let c = Command::Open { path: cargo };
+    let c = Command::Open {
+        path: cargo.display().to_string(),
+    };
 
     assert_eq!(c, command);
 }
@@ -255,6 +265,9 @@ fn try_from_binary_open_works() {
 #[test]
 fn try_from_binary_breakpoint_works() {
     let source = String::from("lib.rs");
+
+    Command::try_from_binary(&Instruction::Breakpoint, "lib.rs:invalid_line")
+        .expect_err("line must be numeric");
 
     let breakpoint =
         Command::try_from_binary(&Instruction::Breakpoint, &source)
@@ -284,6 +297,9 @@ fn try_from_binary_breakpoint_works() {
 
 #[test]
 fn try_from_binary_delete_works() {
+    Command::try_from_binary(&Instruction::Delete, "xx")
+        .expect_err("delete should be numeric");
+
     let id = 2387;
     let delete =
         Command::try_from_binary(&Instruction::Delete, &format!("{}", id))
@@ -295,6 +311,9 @@ fn try_from_binary_delete_works() {
 
 #[test]
 fn try_from_binary_goto_works() {
+    Command::try_from_binary(&Instruction::Goto, "xx")
+        .expect_err("goto should be numeric");
+
     let id = 2387;
     let goto = Command::try_from_binary(&Instruction::Goto, &format!("{}", id))
         .expect("failed to create goto command");
@@ -305,6 +324,9 @@ fn try_from_binary_goto_works() {
 
 #[test]
 fn try_from_binary_witness_works() {
+    Command::try_from_binary(&Instruction::Witness, "xx")
+        .expect_err("witness should be numeric");
+
     let id = 2387;
     let witness =
         Command::try_from_binary(&Instruction::Witness, &format!("{}", id))
@@ -312,4 +334,30 @@ fn try_from_binary_witness_works() {
     let w = Command::Witness { id };
 
     assert_eq!(w, witness);
+}
+
+#[test]
+fn command_generates_requests() {
+    Command::Afore.into_iter().next().expect("req");
+    Command::Breakpoint {
+        source: "foo".into(),
+        line: None,
+    }
+    .into_iter()
+    .next()
+    .expect("req");
+    Command::Continue.into_iter().next().expect("req");
+    Command::Delete { id: 83 }.into_iter().next().expect("req");
+    Command::Goto { id: 83 }.into_iter().next().expect("req");
+    Command::Next.into_iter().next().expect("req");
+    Command::Open { path: "foo".into() }
+        .into_iter()
+        .next()
+        .expect("req");
+    Command::Print.into_iter().next().expect("req");
+    Command::Restart.into_iter().next().expect("req");
+    Command::Quit.into_iter().next().expect("req");
+    Command::Witness { id: 83 }.into_iter().next().expect("req");
+
+    assert!(Command::Help.into_iter().next().is_none());
 }
