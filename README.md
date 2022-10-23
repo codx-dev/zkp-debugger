@@ -1,27 +1,36 @@
 # Dusk PLONK debugger
 
-To run:
+A ZKP debugger.
+
+#### VsCode extension
+
+To build the vs code extension, execute the following commands:
 
 ```shell
-cargo run --bin pdb -- ./assets/test.cdf
+cd vscode-zkp-debugger 
+npm install
+npm run build
 ```
 
-### Example
+A VSIX extension will be created as `zkp-debugger-*.vsix`. Then, install it.
 
-First we build the binaries
+![install](https://user-images.githubusercontent.com/8730839/197424968-a5ff001d-0547-464a-bfbc-a71396926cd7.gif)
 
-```shell
-cargo build --release
+After, open a CDF file and append the launch configuration to your vsocde workspace. You can change the default port via `zkp-debugger.bind` configuration option.
+
+```
+"launch": {
+    "configurations": [
+        {
+            "type": "cdf",
+            "request": "launch",
+            "name": "zkp",
+            "debugServer": 35531
+        }
+    ]
+},
 ```
 
-Then we generate a CDF file from the existing circuit
+To start debugging, you can either launch manually the DAP backend, or use the command `Launch ZKP DAP backend`. Once the DAP is available, open a CDF file and start debugging.
 
-```shell
-CDF_OUTPUT=target/naive.cdf cargo run --release --manifest-path example-plonk-circuit/Cargo.toml
-```
-
-And finally we run the debugger application with the generated file
-
-```shell
-cargo run --release --bin dusk-pdb -- target/naive.cdf
-```
+![debug](https://user-images.githubusercontent.com/8730839/197424982-b7b93109-7654-44f7-b387-d68497d38930.gif)

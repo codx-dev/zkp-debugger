@@ -1,0 +1,87 @@
+{
+  "name": "zkp-debugger",
+  "publisher": "dusk-network",
+  "displayName": "zkp-debugger",
+  "description": "A Dusk ZKP debugger.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dusk-network/zkp-debugger.git"
+  },
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.71.0"
+  },
+  "categories": [
+    "Debuggers"
+  ],
+  "activationEvents": [
+    "onLanguage:cdf",
+    "onCommand:zkp-debugger.launch"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "zkp-debugger.launch",
+        "title": "Launch ZKP DAP backend"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Dusk ZKP Debugger",
+      "properties": {
+        "zkp-debugger.bind": {
+          "type": "string",
+          "default": "127.0.0.1:35531",
+          "description": "The socket to bind the DAP backend"
+        }
+      }
+    },
+    "debuggers": [
+      {
+        "type": "cdf",
+        "label": "ZKP Debugger",
+        "languages": ["cdf"],
+        "initialConfigurations": [
+          {
+            "type": "cdf",
+            "request": "launch",
+            "name": "Attach to ZKP DAP",
+            "debugServer": 35531
+          }
+        ]
+      }
+    ],
+    "languages": [
+      {
+        "id": "cdf",
+        "extensions": [
+          ".cdf"
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "build": "mkdir bin; cargo build --release --all-features --bin dusk-cdf-dap --manifest-path ../Cargo.toml && cp ../target/release/dusk-cdf-dap bin && vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.71.0",
+    "@types/glob": "^7.2.0",
+    "@types/mocha": "^9.1.1",
+    "@types/node": "16.x",
+    "@typescript-eslint/eslint-plugin": "^5.31.0",
+    "@typescript-eslint/parser": "^5.31.0",
+    "eslint": "^8.20.0",
+    "glob": "^8.0.3",
+    "mocha": "^10.0.0",
+    "typescript": "^4.7.4",
+    "vsce": "^2.13.0",
+    "@vscode/test-electron": "^2.1.5"
+  }
+}
