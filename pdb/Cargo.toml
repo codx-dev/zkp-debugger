@@ -20,3 +20,6 @@ shellwords = "1.1"
 termbg = "0.4"
 tokio = { version = "1.21", features = ["macros", "rt", "rt-multi-thread", "net", "time"] }
 toml-base-config = "0.1"
+
+[dev-dependencies]
+tokio = { version = "1.21", features = ["full"] }
