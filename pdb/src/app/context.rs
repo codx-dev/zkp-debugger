@@ -152,3 +152,72 @@ impl ContextInner {
         }
     }
 }
+
+#[tokio::test]
+async fn context_base_functions_works() -> io::Result<()> {
+    use dap_reactor::request::Request;
+
+    let config = Config::default();
+    let (requests_tx, mut requests) = mpsc::channel(50);
+    let (outputs_tx, mut outputs) = mpsc::channel(50);
+
+    let context = Context::new(config, requests_tx, outputs_tx);
+
+    let path: String = "foo".into();
+
+    context.replace_path(path.clone()).await?;
+
+    assert_eq!(context.path().await, Some(path));
+
+    let req = requests
+        .try_recv()
+        .expect("replace path should generate initialize");
+
+    assert!(matches!(req.request, Request::Initialize { .. }));
+
+    let command = Command::Print;
+    let cmd_reqs: Vec<_> = command.clone().into_iter().collect();
+
+    context.receive_command(command).await?;
+
+    let mut r = vec![];
+
+    while let Some(req) = requests.try_recv().ok() {
+        r.push(req.request);
+    }
+
+    assert_eq!(cmd_reqs, r);
+
+    let source = ZkSource {
+        path: "foo".into(),
+        contents: "bar".into(),
+    };
+
+    context.replace_contents_batch(vec![source.clone()]).await;
+
+    let contents = context
+        .contents(&source.path)
+        .await
+        .expect("failed to fetch contents");
+
+    assert_eq!(source.contents, contents);
+
+    let output = Output::console("foo");
+
+    context.send_output(output.clone()).await?;
+
+    let o = outputs.try_recv().expect("expected output");
+
+    assert_eq!(output, o);
+
+    let error = String::from("bar");
+
+    context.send_error_output(&error).await;
+
+    let error = Output::error(error);
+    let o = outputs.try_recv().expect("expected output");
+
+    assert_eq!(error, o);
+
+    Ok(())
+}

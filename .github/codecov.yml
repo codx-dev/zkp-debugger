@@ -1,6 +1,8 @@
+ignore:
+  - "**/main.rs"
 coverage:
   status:
     project:
       default:
-        target: 60%
+        target: 80%
     patch: off
