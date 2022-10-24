@@ -18,7 +18,7 @@ A VSIX extension will be created as `zkp-debugger-*.vsix`. Then, install it.
 
 After, open a CDF file and append the launch configuration to your vsocde workspace. You can change the default port via `zkp-debugger.bind` configuration option.
 
-```
+```json
 "launch": {
     "configurations": [
         {
